@@ -1,0 +1,45 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.pidb
+*.cache
+*.pch
+*.ilk
+
+# JetBrains Rider
+.idea/
+
+# User secrets (DO NOT COMMIT)
+**/Microsoft/UserSecrets/
+
+# Environment-specific settings
+appsettings.*.local.json
+appsettings.Development.local.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/

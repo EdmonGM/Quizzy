@@ -1,0 +1,6 @@
+@Quizzy_HostAddress = http://localhost:5043
+
+GET {{Quizzy_HostAddress}}/
+Accept: application/json
+
+###
