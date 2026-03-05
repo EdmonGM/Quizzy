@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Quizzy.Api.Dtos;
 using Quizzy.Api.Mappers;
 using Quizzy.Api.Models;
+using Quizzy.Api.Services;
 
 namespace Quizzy.Api.Controllers;
 
@@ -12,6 +14,7 @@ namespace Quizzy.Api.Controllers;
 public class AccountController(
     UserManager<ApplicationUser> userManager,
     RoleManager<ApplicationRole> roleManager,
+    IJwtTokenService jwtTokenService,
     ILogger<AccountController> logger)
     : ControllerBase
 {
@@ -38,7 +41,7 @@ public class AccountController(
     }
 
     /// <summary>
-    /// Login with username and password
+    /// Login with username and password and receive JWT token
     /// </summary>
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto model)
@@ -58,10 +61,17 @@ public class AccountController(
         }
 
         var roles = await userManager.GetRolesAsync(user);
+        var token = jwtTokenService.GenerateToken(user, roles);
 
         logger.LogInformation("User {Username} logged in successfully", user.UserName);
 
-        return Ok(user.ToUserResponseDto(roles));
+        return Ok(new LoginResponseDto
+        {
+            Token = token,
+            Username = user.UserName!,
+            Email = user.Email!,
+            Roles = roles
+        });
     }
 
     /// <summary>
@@ -104,6 +114,7 @@ public class AccountController(
     /// Get all users
     /// </summary>
     [HttpGet]
+    [Authorize (Roles = "Admin")]
     public async Task<IActionResult> GetAllUsers()
     {
         var users = userManager.Users.ToList();
@@ -122,6 +133,7 @@ public class AccountController(
     /// Update user email
     /// </summary>
     [HttpPut("{id}/email")]
+    [Authorize]
     public async Task<IActionResult> UpdateEmail(string id, [FromBody] UpdateEmailDto model)
     {
         var user = await userManager.FindByIdAsync(id);
@@ -148,6 +160,7 @@ public class AccountController(
     /// Update user password
     /// </summary>
     [HttpPut("{id}/password")]
+    [Authorize]
     public async Task<IActionResult> UpdatePassword(string id, [FromBody] UpdatePasswordDto model)
     {
         var user = await userManager.FindByIdAsync(id);
@@ -174,6 +187,7 @@ public class AccountController(
     /// Delete user
     /// </summary>
     [HttpDelete("{id}")]
+    [Authorize]
     public async Task<IActionResult> DeleteUser(string id)
     {
         var user = await userManager.FindByIdAsync(id);
@@ -199,6 +213,7 @@ public class AccountController(
     /// Add user to role
     /// </summary>
     [HttpPost("{id}/roles/{role}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> AddToRole(string id, string role)
     {
         var user = await userManager.FindByIdAsync(id);
@@ -229,6 +244,7 @@ public class AccountController(
     /// Remove user from role
     /// </summary>
     [HttpDelete("{id}/roles/{role}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> RemoveFromRole(string id, string role)
     {
         var user = await userManager.FindByIdAsync(id);
@@ -259,6 +275,7 @@ public class AccountController(
     /// Get user roles
     /// </summary>
     [HttpGet("{id}/roles")]
+    [Authorize]
     public async Task<IActionResult> GetUserRoles(string id)
     {
         var user = await userManager.FindByIdAsync(id);
