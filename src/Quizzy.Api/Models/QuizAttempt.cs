@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Quizzy.Api.Models;
 
 public class QuizAttempt : BaseEntity
@@ -7,6 +9,7 @@ public class QuizAttempt : BaseEntity
     public string StudentId { get; set; } = string.Empty;
     public ApplicationUser Student { get; set; } = null!;
     public int AttemptNumber { get; set; }
+    [MaxLength(64)]
     public string Status { get; set; } = QuizAttemptStatus.InProgress;
     public DateTime StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
