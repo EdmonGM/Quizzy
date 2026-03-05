@@ -15,6 +15,7 @@ public class AccountController(
     UserManager<ApplicationUser> userManager,
     RoleManager<ApplicationRole> roleManager,
     IJwtTokenService jwtTokenService,
+    IAccountDeletionService accountDeletionService,
     ILogger<AccountController> logger)
     : ControllerBase
 {
@@ -184,27 +185,26 @@ public class AccountController(
     }
 
     /// <summary>
-    /// Delete user
+    /// Delete user account permanently. Quizzes created by the user will be transferred to a system account.
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize]
     public async Task<IActionResult> DeleteUser(string id)
     {
-        var user = await userManager.FindByIdAsync(id);
-
-        if (user == null)
-        {
-            return NotFound(new { Message = "User not found" });
-        }
-
-        var result = await userManager.DeleteAsync(user);
+        var result = await accountDeletionService.DeleteUserAsync(id);
 
         if (!result.Succeeded)
         {
-            return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
+            var error = result.Errors.FirstOrDefault();
+            return error?.Code switch
+            {
+                "UserNotFound" => NotFound(new { Message = error.Description }),
+                "CannotDeleteSystemUser" => BadRequest(new { Message = error.Description }),
+                _ => BadRequest(new { Errors = result.Errors.Select(e => e.Description) })
+            };
         }
 
-        logger.LogInformation("User {UserId} deleted successfully", user.Id);
+        logger.LogInformation("User {UserId} deleted successfully", id);
 
         return Ok(new { Message = "User deleted successfully" });
     }
