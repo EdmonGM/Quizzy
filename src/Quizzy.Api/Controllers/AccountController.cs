@@ -11,70 +11,14 @@ namespace Quizzy.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class AccountController(
     UserManager<ApplicationUser> userManager,
     RoleManager<ApplicationRole> roleManager,
-    IJwtTokenService jwtTokenService,
     IAccountDeletionService accountDeletionService,
     ILogger<AccountController> logger)
     : ControllerBase
 {
-    /// <summary>
-    /// Register a new user
-    /// </summary>
-    [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterDto model)
-    {
-        var user = model.ToApplicationUser();
-
-        var result = await userManager.CreateAsync(user, model.Password);
-
-        if (!result.Succeeded)
-        {
-            return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
-        }
-
-        await userManager.AddToRoleAsync(user, "Student");
-
-        logger.LogInformation("User {Username} registered successfully", user.UserName);
-
-        return Ok(user.ToUserResponseDto());
-    }
-
-    /// <summary>
-    /// Login with username and password and receive JWT token
-    /// </summary>
-    [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginDto model)
-    {
-        var user = await userManager.FindByNameAsync(model.Username);
-
-        if (user == null)
-        {
-            return Unauthorized(new { Message = "Invalid username or password" });
-        }
-
-        var result = await userManager.CheckPasswordAsync(user, model.Password);
-
-        if (!result)
-        {
-            return Unauthorized(new { Message = "Invalid username or password" });
-        }
-
-        var roles = await userManager.GetRolesAsync(user);
-        var token = jwtTokenService.GenerateToken(user, roles);
-
-        logger.LogInformation("User {Username} logged in successfully", user.UserName);
-
-        return Ok(new LoginResponseDto
-        {
-            Token = token,
-            Username = user.UserName!,
-            Email = user.Email!,
-            Roles = roles
-        });
-    }
-
     /// <summary>
     /// Get user by ID
     /// </summary>
@@ -134,7 +78,6 @@ public class AccountController(
     /// Update user email
     /// </summary>
     [HttpPut("{id}/email")]
-    [Authorize]
     public async Task<IActionResult> UpdateEmail(string id, [FromBody] UpdateEmailDto model)
     {
         var user = await userManager.FindByIdAsync(id);
@@ -161,7 +104,6 @@ public class AccountController(
     /// Update user password
     /// </summary>
     [HttpPut("{id}/password")]
-    [Authorize]
     public async Task<IActionResult> UpdatePassword(string id, [FromBody] UpdatePasswordDto model)
     {
         var user = await userManager.FindByIdAsync(id);
@@ -188,7 +130,6 @@ public class AccountController(
     /// Delete user account permanently. Quizzes created by the user will be transferred to a system account.
     /// </summary>
     [HttpDelete("{id}")]
-    [Authorize]
     public async Task<IActionResult> DeleteUser(string id)
     {
         var result = await accountDeletionService.DeleteUserAsync(id);
@@ -275,7 +216,6 @@ public class AccountController(
     /// Get user roles
     /// </summary>
     [HttpGet("{id}/roles")]
-    [Authorize]
     public async Task<IActionResult> GetUserRoles(string id)
     {
         var user = await userManager.FindByIdAsync(id);
