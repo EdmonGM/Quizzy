@@ -9,6 +9,7 @@ namespace Quizzy.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class QuizzesController(ApplicationDbContext context) : ControllerBase
 {
     /// <summary>
@@ -36,7 +37,6 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     /// Get all quizzes by the current authenticated user (including drafts)
     /// </summary>
     [HttpGet("my-quizzes")]
-    [Authorize]
     public async Task<IActionResult> GetMyQuizzes()
     {
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -123,7 +123,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     }
 
     /// <summary>
-    /// Create a new quiz (requires authentication)
+    /// Create a new quiz
     /// </summary>
     [HttpPost]
     [Authorize(Roles = "Teacher")]
@@ -161,7 +161,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     }
 
     /// <summary>
-    /// Update a quiz (requires authentication)
+    /// Update a quiz
     /// </summary>
     [HttpPut("{id:guid}")]
     [Authorize(Roles = "Teacher")]
@@ -214,7 +214,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     }
 
     /// <summary>
-    /// Delete a quiz (soft delete) (requires authentication)
+    /// Delete a quiz (soft delete)
     /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize (Roles = "Teacher")]
@@ -259,7 +259,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     }
 
     /// <summary>
-    /// Publish/Unpublish a quiz (requires authentication)
+    /// Publish/Unpublish a quiz
     /// </summary>
     [HttpPatch("{id:guid}/publish")]
     [Authorize(Roles = "Teacher")]

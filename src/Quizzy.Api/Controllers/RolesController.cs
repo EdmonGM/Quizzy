@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,7 @@ namespace Quizzy.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class RolesController(
     RoleManager<ApplicationRole> roleManager,
     UserManager<ApplicationUser> userManager)
@@ -28,6 +30,7 @@ public class RolesController(
     /// Get users in a role
     /// </summary>
     [HttpGet("{name}/users")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetUsersInRole(string name)
     {
         var role = await roleManager.FindByNameAsync(name);

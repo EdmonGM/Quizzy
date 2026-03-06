@@ -10,6 +10,7 @@ namespace Quizzy.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class CategoriesController(ApplicationDbContext context) : ControllerBase
 {
     /// <summary>
@@ -57,10 +58,10 @@ public class CategoriesController(ApplicationDbContext context) : ControllerBase
     }
 
     /// <summary>
-    /// Create a new category (Admin only)
+    /// Create a new category
     /// </summary>
     [HttpPost]
-    // [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateCategory([FromBody] CreateCategoryDto dto)
     {
         if (!ModelState.IsValid)
@@ -92,7 +93,7 @@ public class CategoriesController(ApplicationDbContext context) : ControllerBase
     }
 
     /// <summary>
-    /// Update a category (Admin only)
+    /// Update a category
     /// </summary>
     [HttpPut("{id:guid}")]
     [Authorize(Roles = "Admin")]
@@ -133,7 +134,7 @@ public class CategoriesController(ApplicationDbContext context) : ControllerBase
     }
 
     /// <summary>
-    /// Delete a category (soft delete) (Admin only)
+    /// Delete a category (soft delete)
     /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "Admin")]
