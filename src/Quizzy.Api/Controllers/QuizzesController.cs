@@ -19,21 +19,18 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     public async Task<IActionResult> GetAllQuizzes()
     {
         var quizzes = await context.Quizzes
-            .Where(q => !q.IsDeleted && q.IsPublished)
             .Include(q => q.Category)
+            .Include(q => q.Teacher)
+            .Include(q => q.Questions)
+            .Where(q => !q.IsDeleted && q.IsPublished)
             .OrderByDescending(q => q.CreatedAt)
+            .Select(q => q.ToQuizResponseDto())
             .ToListAsync();
 
-        var result = new List<QuizResponseDto>();
-        foreach (var quiz in quizzes)
-        {
-            result.Add(await quiz.ToQuizResponseDtoAsync(context));
-        }
-
-        return Ok(result);
+        return Ok(quizzes);
     }
-
-    /// <summary>
+    
+    /// <summary>   
     /// Get all quizzes by the current authenticated user (including drafts)
     /// </summary>
     [HttpGet("my-quizzes")]
@@ -47,18 +44,15 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
         }
 
         var quizzes = await context.Quizzes
-            .Where(q => !q.IsDeleted && q.TeacherId == userId)
             .Include(q => q.Category)
+            .Include(q => q.Teacher)
+            .Include(q => q.Questions)
+            .Where(q => !q.IsDeleted && q.TeacherId == userId)
             .OrderByDescending(q => q.CreatedAt)
+            .Select(q => q.ToQuizResponseDto())
             .ToListAsync();
 
-        var result = new List<QuizResponseDto>();
-        foreach (var quiz in quizzes)
-        {
-            result.Add(await quiz.ToQuizResponseDtoAsync(context));
-        }
-
-        return Ok(result);
+        return Ok(quizzes);
     }
 
     /// <summary>
@@ -68,18 +62,15 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     public async Task<IActionResult> GetQuizzesByTeacher(string teacherId)
     {
         var quizzes = await context.Quizzes
-            .Where(q => !q.IsDeleted && q.TeacherId == teacherId)
             .Include(q => q.Category)
+            .Include(q => q.Teacher)
+            .Include(q => q.Questions)
+            .Where(q => !q.IsDeleted && q.TeacherId == teacherId)
             .OrderByDescending(q => q.CreatedAt)
+            .Select(q => q.ToQuizResponseDto())
             .ToListAsync();
 
-        var result = new List<QuizResponseDto>();
-        foreach (var quiz in quizzes)
-        {
-            result.Add(await quiz.ToQuizResponseDtoAsync(context));
-        }
-
-        return Ok(result);
+        return Ok(quizzes);
     }
 
     /// <summary>
@@ -89,18 +80,15 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     public async Task<IActionResult> GetQuizzesByCategory(Guid categoryId)
     {
         var quizzes = await context.Quizzes
-            .Where(q => !q.IsDeleted && q.IsPublished && q.CategoryId == categoryId)
             .Include(q => q.Category)
+            .Include(q => q.Teacher)
+            .Include(q => q.Questions)
+            .Where(q => !q.IsDeleted && q.IsPublished && q.CategoryId == categoryId)
             .OrderByDescending(q => q.CreatedAt)
+            .Select(q => q.ToQuizResponseDto())
             .ToListAsync();
 
-        var result = new List<QuizResponseDto>();
-        foreach (var quiz in quizzes)
-        {
-            result.Add(await quiz.ToQuizResponseDtoAsync(context));
-        }
-
-        return Ok(result);
+        return Ok(quizzes);
     }
 
     /// <summary>
@@ -112,6 +100,9 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
         var quiz = await context.Quizzes
             .Where(q => !q.IsDeleted)
             .Include(q => q.Category)
+            .Include(q => q.Teacher)
+            .Include(q => q.Questions)
+                .ThenInclude(q => q.Choices)
             .FirstOrDefaultAsync(q => q.Id == id);
 
         if (quiz == null)
@@ -119,9 +110,9 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
             return NotFound(new { Message = "Quiz not found" });
         }
 
-        return Ok(await quiz.ToQuizDetailResponseDtoAsync(context));
+        return Ok(quiz.ToQuizDetailedResponseDto());
     }
-
+    
     /// <summary>
     /// Create a new quiz
     /// </summary>
@@ -151,13 +142,12 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
             return BadRequest(new { Message = "Invalid category" });
         }
 
-        var quiz = dto.ToQuiz();
-        quiz.TeacherId = userId;
+        var quiz = dto.ToQuiz(userId);
 
         await context.Quizzes.AddAsync(quiz);
         await context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetQuizById), new { id = quiz.Id }, await quiz.ToQuizResponseDtoAsync(context));
+        return CreatedAtAction(nameof(GetQuizById), new { id = quiz.Id }, quiz.ToQuizResponseDto());
     }
 
     /// <summary>
@@ -182,6 +172,8 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
         var quiz = await context.Quizzes
             .Where(q => !q.IsDeleted)
             .Include(q => q.Category)
+            .Include(q => q.Teacher)
+            .Include(q => q.Questions)
             .FirstOrDefaultAsync(q => q.Id == id);
 
         if (quiz == null)
@@ -210,7 +202,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
         quiz.UpdateQuizFromDto(dto);
         await context.SaveChangesAsync();
 
-        return Ok(await quiz.ToQuizResponseDtoAsync(context));
+        return Ok(quiz.ToQuizResponseDto());
     }
 
     /// <summary>
@@ -239,15 +231,6 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
         if (quiz.TeacherId != userId)
         {
             return Forbid();
-        }
-
-        // Check if quiz has attempts
-        var hasAttempts = await context.QuizAttempts
-            .AnyAsync(a => a.QuizId == id);
-
-        if (hasAttempts)
-        {
-            return BadRequest(new { Message = "Cannot delete quiz with existing attempts" });
         }
 
         quiz.IsDeleted = true;
@@ -291,7 +274,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
 
         await context.SaveChangesAsync();
 
-        return Ok(await quiz.ToQuizResponseDtoAsync(context));
+        return Ok(quiz.ToQuizResponseDto());
     }
 }
 
