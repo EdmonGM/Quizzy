@@ -5,7 +5,7 @@ namespace Quizzy.Api.Mappers;
 
 public static class AuthMapper
 {
-    public static ApplicationUser ToApplicationUser(this RegisterDto dto)
+    public static ApplicationUser ToApplicationUser<T>(this T dto) where T : CreateAdminDto
     {
         return new ApplicationUser
         {
@@ -14,7 +14,7 @@ public static class AuthMapper
             EmailConfirmed = false
         };
     }
-
+    
     extension(ApplicationUser user)
     {
         public UserResponseDto ToUserResponseDto(IEnumerable<string> roles)
@@ -39,5 +39,3 @@ public static class AuthMapper
         }
     }
 }
-
-
