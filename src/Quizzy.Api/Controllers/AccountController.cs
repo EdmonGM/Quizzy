@@ -78,7 +78,7 @@ public class AccountController(
     /// Update user email
     /// </summary>
     [HttpPut("{id}/email")]
-    public async Task<IActionResult> UpdateEmail(string id, [FromBody] UpdateEmailDto model)
+    public async Task<IActionResult> UpdateEmail(string id, [FromBody] string email)
     {
         var user = await userManager.FindByIdAsync(id);
 
@@ -87,15 +87,15 @@ public class AccountController(
             return NotFound(new { Message = "User not found" });
         }
 
-        var token = await userManager.GenerateChangeEmailTokenAsync(user, model.Email);
-        var result = await userManager.ChangeEmailAsync(user, model.Email, token);
+        var token = await userManager.GenerateChangeEmailTokenAsync(user, email);
+        var result = await userManager.ChangeEmailAsync(user, email, token);
 
         if (!result.Succeeded)
         {
             return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
         }
 
-        logger.LogInformation("User {UserId} email updated to {Email}", user.Id, model.Email);
+        logger.LogInformation("User {UserId} email updated to {Email}", user.Id, email);
 
         return Ok(new { Message = "Email updated successfully" });
     }
@@ -104,7 +104,7 @@ public class AccountController(
     /// Update user password
     /// </summary>
     [HttpPut("{id}/password")]
-    public async Task<IActionResult> UpdatePassword(string id, [FromBody] UpdatePasswordDto model)
+    public async Task<IActionResult> UpdatePassword(string id, [FromBody] UpdatePasswordDto dto)
     {
         var user = await userManager.FindByIdAsync(id);
 
@@ -112,9 +112,8 @@ public class AccountController(
         {
             return NotFound(new { Message = "User not found" });
         }
-
-        var token = await userManager.GeneratePasswordResetTokenAsync(user);
-        var result = await userManager.ResetPasswordAsync(user, token, model.NewPassword);
+        
+        var result = await userManager.ChangePasswordAsync(user, dto.CurrentPassword, dto.NewPassword);
 
         if (!result.Succeeded)
         {
