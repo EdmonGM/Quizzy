@@ -1,6 +1,8 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Quizzy.Api.Data;
 using Quizzy.Api.Dtos;
 using Quizzy.Api.Mappers;
 using Quizzy.Api.Models;
@@ -10,44 +12,93 @@ namespace Quizzy.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController(UserManager<ApplicationUser> userManager, ILogger<AuthController> logger, IJwtTokenService jwtTokenService):ControllerBase
+public class AuthController(
+    UserManager<ApplicationUser> userManager,
+    ApplicationDbContext context,
+    ILogger<AuthController> logger,
+    IJwtTokenService jwtTokenService) : ControllerBase
 {
     /// <summary>
     /// Register a new user
     /// </summary>
     [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterDto model)
+    public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     {
-        var user = model.ToApplicationUser();
+        if (dto.Role is not "Student" and not "Teacher")
+        {
+            return BadRequest(new { Message = "Invalid role. Must be 'Student' or 'Teacher'." });
+        }
 
-        var result = await userManager.CreateAsync(user, model.Password);
+        var user = dto.ToApplicationUser();
+        
+        var result = await userManager.CreateAsync(user, dto.Password);
 
         if (!result.Succeeded)
         {
             return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
         }
 
-        await userManager.AddToRoleAsync(user, "Student");
+        await userManager.AddToRoleAsync(user, dto.Role);
 
-        logger.LogInformation("User {Username} registered successfully", user.UserName);
+        var profile = new UserProfile
+        {
+            UserId = user.Id,
+            User = user,
+            FirstName = dto.FirstName,
+            LastName = dto.LastName,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
 
-        return Ok(user.ToUserResponseDto());
+        await context.UserProfiles.AddAsync(profile);
+        await context.SaveChangesAsync();
+
+        logger.LogInformation("User {Username} registered successfully as {Role}", user.UserName, dto.Role);
+
+        return Ok(profile.ToUserProfileDto(user.UserName!, user.Email!));
+    }
+
+    /// <summary>
+    /// Create an admin user (Admin only)
+    /// </summary>
+    [HttpPost("create-admin")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateAdmin([FromBody] CreateAdminDto dto)
+    {
+        var user = dto.ToApplicationUser();
+
+        var result = await userManager.CreateAsync(user, dto.Password);
+
+        if (!result.Succeeded)
+        {
+            return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
+        }
+
+        await userManager.AddToRoleAsync(user, "Admin");
+        
+        await context.SaveChangesAsync();
+
+        logger.LogInformation("Admin user {Username} created successfully by {CurrentUser}", user.UserName, User.Identity?.Name);
+
+        var userResponseDto = user.ToUserResponseDto();
+
+        return Ok(new { Message = "Admin user created successfully", userResponseDto });
     }
 
     /// <summary>
     /// Login with username and password and receive JWT token
     /// </summary>
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginDto model)
+    public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
-        var user = await userManager.FindByNameAsync(model.Username);
+        var user = await userManager.FindByNameAsync(dto.Username);
 
         if (user == null)
         {
             return Unauthorized(new { Message = "Invalid username or password" });
         }
 
-        var result = await userManager.CheckPasswordAsync(user, model.Password);
+        var result = await userManager.CheckPasswordAsync(user, dto.Password);
 
         if (!result)
         {
@@ -74,9 +125,9 @@ public class AuthController(UserManager<ApplicationUser> userManager, ILogger<Au
     /// Refresh access token using refresh token
     /// </summary>
     [HttpPost("refresh")]
-    public async Task<IActionResult> Refresh([FromBody] RefreshTokenDto model)
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenDto dto)
     {
-        var principal = jwtTokenService.GetPrincipalFromExpiredToken(model.Token);
+        var principal = jwtTokenService.GetPrincipalFromExpiredToken(dto.Token);
 
         if (principal == null)
         {
@@ -91,7 +142,7 @@ public class AuthController(UserManager<ApplicationUser> userManager, ILogger<Au
             return BadRequest(new { Message = "Invalid token claims" });
         }
 
-        var refreshTokenPrincipal = jwtTokenService.GetPrincipalFromRefreshToken(model.RefreshToken);
+        var refreshTokenPrincipal = jwtTokenService.GetPrincipalFromRefreshToken(dto.RefreshToken);
 
         if (refreshTokenPrincipal == null)
         {
