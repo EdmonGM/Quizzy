@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Quizzy.Api.Data;
@@ -11,7 +12,7 @@ namespace Quizzy.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class QuizAttemptsController(ApplicationDbContext context) : ControllerBase
+public class QuizAttemptsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager) : ControllerBase
 {
     /// <summary>
     /// Get current user's attempts for a specific quiz (Students)
@@ -184,9 +185,9 @@ public class QuizAttemptsController(ApplicationDbContext context) : ControllerBa
     [HttpPost("{attemptId:guid}/answers")]
     public async Task<IActionResult> SubmitAnswer(Guid attemptId, [FromBody] SubmitAnswerDto dto)
     {
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var currentUserId = userManager.GetUserId(User);
 
-        if (string.IsNullOrEmpty(userId))
+        if (string.IsNullOrEmpty(currentUserId))
         {
             return Unauthorized(new { Message = "User not authenticated" });
         }
@@ -200,7 +201,7 @@ public class QuizAttemptsController(ApplicationDbContext context) : ControllerBa
             return NotFound(new { Message = "Attempt not found" });
         }
 
-        if (attempt.StudentId != userId)
+        if (attempt.StudentId != currentUserId)
         {
             return Forbid();
         }
@@ -250,31 +251,35 @@ public class QuizAttemptsController(ApplicationDbContext context) : ControllerBa
             existingAnswer.QuestionSnapshot = question.Content;
             existingAnswer.IsCorrect = choice.IsCorrect;
             existingAnswer.UpdatedAt = DateTime.UtcNow;
-        }
-        else
-        {
-            // Create new answer
-            var answer = new StudentAnswer
+            
+            await context.SaveChangesAsync();
+            
+            return Ok(new SubmitAnswerResponseDto
             {
-                Id = Guid.NewGuid(),
-                AttemptId = attemptId,
-                QuestionId = dto.QuestionId,
-                ChoiceId = dto.ChoiceId,
-                QuestionSnapshot = question.Content,
-                ChoiceSnapshot = choice.Content,
-                IsCorrect = choice.IsCorrect,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            await context.StudentAnswers.AddAsync(answer);
+                AnswerId = existingAnswer.Id,
+                Saved = true
+            });
         }
+        // Create new answer
+        var answer = new StudentAnswer
+        {
+            Id = Guid.NewGuid(),
+            AttemptId = attemptId,
+            QuestionId = dto.QuestionId,
+            ChoiceId = dto.ChoiceId,
+            QuestionSnapshot = question.Content,
+            ChoiceSnapshot = choice.Content,
+            IsCorrect = choice.IsCorrect,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
 
+        await context.StudentAnswers.AddAsync(answer);
         await context.SaveChangesAsync();
-
+        
         return Ok(new SubmitAnswerResponseDto
         {
-            AnswerId = existingAnswer?.Id ?? choice.Id,
+            AnswerId = answer.Id,
             Saved = true
         });
     }
@@ -285,9 +290,9 @@ public class QuizAttemptsController(ApplicationDbContext context) : ControllerBa
     [HttpPost("{attemptId:guid}/submit")]
     public async Task<IActionResult> SubmitAttempt(Guid attemptId)
     {
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var currentUserId = userManager.GetUserId(User);
 
-        if (string.IsNullOrEmpty(userId))
+        if (string.IsNullOrEmpty(currentUserId))
         {
             return Unauthorized(new { Message = "User not authenticated" });
         }
@@ -304,7 +309,7 @@ public class QuizAttemptsController(ApplicationDbContext context) : ControllerBa
             return NotFound(new { Message = "Attempt not found" });
         }
 
-        if (attempt.StudentId != userId)
+        if (attempt.StudentId != currentUserId)
         {
             return Forbid();
         }
@@ -342,11 +347,7 @@ public class QuizAttemptsController(ApplicationDbContext context) : ControllerBa
         foreach (var answer in attempt.StudentAnswers)
         {
             if (!answer.IsCorrect) continue;
-            var question = await context.Questions.FindAsync(answer.QuestionId);
-            if (question != null)
-            {
-                score += question.Points;
-            }
+            score += answer.Question.Points;
         }
 
         attempt.Score = score;
