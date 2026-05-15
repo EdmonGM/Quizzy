@@ -1,7 +1,9 @@
 using System.Security.Claims;
+using System.Transactions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Quizzy.Api.Data;
 using Quizzy.Api.Dtos;
 using Quizzy.Api.Mappers;
@@ -10,6 +12,12 @@ using Quizzy.Api.Services;
 
 namespace Quizzy.Api.Controllers;
 
+/// <summary>
+/// Handles authentication operations including registration, login, token refresh, and admin creation.
+/// </summary>
+/// <remarks>
+/// Login, Register, and Refresh endpoints do not require authentication. CreateAdmin requires Admin role.
+/// </remarks>
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController(
@@ -18,51 +26,75 @@ public class AuthController(
     ILogger<AuthController> logger,
     IJwtTokenService jwtTokenService) : ControllerBase
 {
+    private const string RoleStudent = "Student";
+    private const string RoleTeacher = "Teacher";
+    private const string RoleAdmin = "Admin";
+
     /// <summary>
-    /// Register a new user
+    /// Register a new user account with Student or Teacher role.
     /// </summary>
+    /// <param name="dto">The registration details including username, email, password, and role.</param>
+    /// <returns>The created user profile.</returns>
+    /// <response code="200">Returns the created user profile.</response>
+    /// <response code="400">If registration fails or role is invalid.</response>
+    /// <response code="429">If too many registration attempts from the same IP.</response>
     [HttpPost("register")]
+    [EnableRateLimiting("register")]
+    [ProducesResponseType(typeof(UserProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     {
-        if (dto.Role is not "Student" and not "Teacher")
+        if (dto.Role is not RoleStudent and not RoleTeacher)
         {
             return BadRequest(new { Message = "Invalid role. Must be 'Student' or 'Teacher'." });
         }
 
         var user = dto.ToApplicationUser();
-        
-        var result = await userManager.CreateAsync(user, dto.Password);
 
-        if (!result.Succeeded)
+        using var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
+        try
         {
-            return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
+            var result = await userManager.CreateAsync(user, dto.Password);
+
+            if (!result.Succeeded)
+            {
+                return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
+            }
+
+            await userManager.AddToRoleAsync(user, dto.Role);
+
+            var profile = new UserProfile
+            {
+                UserId = user.Id,
+                User = user,
+                FirstName = dto.FirstName,
+                LastName = dto.LastName,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await context.UserProfiles.AddAsync(profile);
+            await context.SaveChangesAsync();
+
+            scope.Complete();
+
+            logger.LogInformation("User {Username} registered successfully as {Role}", user.UserName, dto.Role);
+
+            return Ok(profile.ToUserProfileDto(user.UserName!, user.Email!));
         }
-
-        await userManager.AddToRoleAsync(user, dto.Role);
-
-        var profile = new UserProfile
+        catch
         {
-            UserId = user.Id,
-            User = user,
-            FirstName = dto.FirstName,
-            LastName = dto.LastName,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        await context.UserProfiles.AddAsync(profile);
-        await context.SaveChangesAsync();
-
-        logger.LogInformation("User {Username} registered successfully as {Role}", user.UserName, dto.Role);
-
-        return Ok(profile.ToUserProfileDto(user.UserName!, user.Email!));
+            logger.LogError("Failed to register user {Username}", dto.Username);
+            return StatusCode(500, new { Message = "An error occurred during registration." });
+        }
     }
 
     /// <summary>
     /// Create an admin user (Admin only)
     /// </summary>
     [HttpPost("create-admin")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleAdmin)]
     public async Task<IActionResult> CreateAdmin([FromBody] CreateAdminDto dto)
     {
         var user = dto.ToApplicationUser();
@@ -74,8 +106,19 @@ public class AuthController(
             return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
         }
 
-        await userManager.AddToRoleAsync(user, "Admin");
-        
+        await userManager.AddToRoleAsync(user, RoleAdmin);
+
+        var profile = new UserProfile
+        {
+            UserId = user.Id,
+            User = user,
+            FirstName = dto.Username,
+            LastName = string.Empty,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        await context.UserProfiles.AddAsync(profile);
         await context.SaveChangesAsync();
 
         logger.LogInformation("Admin user {Username} created successfully by {CurrentUser}", user.UserName, User.Identity?.Name);
@@ -89,6 +132,7 @@ public class AuthController(
     /// Login with username and password and receive JWT token
     /// </summary>
     [HttpPost("login")]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
         var user = await userManager.FindByNameAsync(dto.Username);
