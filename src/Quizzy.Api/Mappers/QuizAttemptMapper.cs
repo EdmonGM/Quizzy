@@ -19,7 +19,7 @@ public static class QuizAttemptMapper
             Score = attempt.Score,
             TotalPossibleScore = attempt.TotalPossibleScore,
             Percentage = Math.Round(percentage, 2),
-            Passed = percentage >= 70,
+            Passed = percentage >= attempt.Quiz.PassingScore,
             StartedAt = attempt.StartedAt,
             CompletedAt = attempt.CompletedAt,
             TimeSpentSeconds = attempt.TimeSpentSeconds
@@ -47,7 +47,7 @@ public static class QuizAttemptMapper
             Score = attempt.Score,
             TotalPossibleScore = attempt.TotalPossibleScore,
             Percentage = Math.Round(percentage, 2),
-            Passed = percentage >= 70,
+            Passed = percentage >= attempt.Quiz.PassingScore,
             CreatedAt = attempt.CreatedAt,
             UpdatedAt = attempt.UpdatedAt
         };
@@ -94,9 +94,7 @@ public static class QuizAttemptMapper
             Percentage = attempt.TotalPossibleScore > 0
                 ? Math.Round((double)attempt.Score / attempt.TotalPossibleScore * 100, 2)
                 : 0,
-            Passed = attempt.TotalPossibleScore > 0
-                ? (double)attempt.Score / attempt.TotalPossibleScore * 100 >= 70
-                : false,
+            Passed = attempt.TotalPossibleScore > 0 && (double)attempt.Score / attempt.TotalPossibleScore * 100 >= attempt.Quiz.PassingScore,
             Questions = quizQuestions
         };
     }
