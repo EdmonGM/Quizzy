@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Quizzy.Api.Dtos;
 using Quizzy.Api.Mappers;
 using Quizzy.Api.Models;
@@ -9,20 +8,33 @@ using Quizzy.Api.Services;
 
 namespace Quizzy.Api.Controllers;
 
+/// <summary>
+/// Manages user account operations including, get users (all or by id / username), get provided user roles, update (email, password) and delete.
+/// </summary>
+/// <remarks>
+/// This controller require authentication for all endpoints.
+/// </remarks>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
 public class AccountController(
     UserManager<ApplicationUser> userManager,
-    RoleManager<ApplicationRole> roleManager,
     IAccountDeletionService accountDeletionService,
     ILogger<AccountController> logger)
     : ControllerBase
 {
     /// <summary>
-    /// Get user by ID
+    /// Retrieves a user by their unique identifier.
     /// </summary>
+    /// <param name="id">The GUID of the user to retrieve.</param>
+    /// <returns>The user details if found.</returns>
+    /// <response code="200">Returns the requested user.</response>
+    /// <response code="401">If the request is not authenticated.</response>
+    /// <response code="404">If the user is not found.</response>
     [HttpGet("{id}")]
+    [ProducesResponseType(typeof(UserResponseDto),StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetUserById(string id)
     {
         var user = await userManager.FindByIdAsync(id);
@@ -38,9 +50,17 @@ public class AccountController(
     }
 
     /// <summary>
-    /// Get user by username
+    /// Retrieves a user by their username.
     /// </summary>
+    /// <param name="username">The username of the user to retrieve.</param>
+    /// <returns>The user details if found.</returns>
+    /// <response code="200">Returns the requested user.</response>
+    /// <response code="401">If the request is not authenticated.</response>
+    /// <response code="404">If the user is not found.</response>
     [HttpGet("username/{username}")]
+    [ProducesResponseType(typeof(UserResponseDto),StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetUserByUsername(string username)
     {
         var user = await userManager.FindByNameAsync(username);
@@ -56,10 +76,16 @@ public class AccountController(
     }
 
     /// <summary>
-    /// Get all users
+    /// Get all users.
     /// </summary>
+    /// <remarks>This endpoint requires Admin role.</remarks>
+    /// <returns>List of users details if found.</returns>
+    /// <response code="200">Returns the list of users.</response>
+    /// <response code="401">If the request is not authenticated.</response>
     [HttpGet]
     [Authorize (Roles = "Admin")]
+    [ProducesResponseType(typeof(List<UserResponseDto>),StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetAllUsers()
     {
         var users = userManager.Users.ToList();
@@ -75,63 +101,104 @@ public class AccountController(
     }
 
     /// <summary>
-    /// Update user email
+    /// Update current user email.
     /// </summary>
-    [HttpPut("{id}/email")]
-    public async Task<IActionResult> UpdateEmail(string id, [FromBody] string email)
+    /// <remarks>This endpoint is only accessible by currently logged-in user.</remarks>
+    /// <response code="200"></response>
+    /// <response code="400">If changing email failed.</response>
+    /// <response code="401">If the request is not authenticated.</response>
+    /// <response code="404">If the user is not found.</response>
+    [HttpPut("me/email")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateEmail([FromBody] string email)
     {
-        var user = await userManager.FindByIdAsync(id);
-
-        if (user == null)
+                
+        var currentUserId = userManager.GetUserId(User);
+        if (currentUserId == null)
+        {
+            return Unauthorized();
+        }
+        var currentUser = await userManager.FindByIdAsync(currentUserId);
+        if (currentUser == null)
         {
             return NotFound(new { Message = "User not found" });
         }
 
-        var token = await userManager.GenerateChangeEmailTokenAsync(user, email);
-        var result = await userManager.ChangeEmailAsync(user, email, token);
+        var token = await userManager.GenerateChangeEmailTokenAsync(currentUser, email);
+        var result = await userManager.ChangeEmailAsync(currentUser, email, token);
 
         if (!result.Succeeded)
         {
             return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
         }
 
-        logger.LogInformation("User {UserId} email updated to {Email}", user.Id, email);
+        logger.LogInformation("User {UserId} email updated to {Email}", currentUser.Id, email);
 
         return Ok(new { Message = "Email updated successfully" });
     }
 
     /// <summary>
-    /// Update user password
+    /// Update current user password
     /// </summary>
-    [HttpPut("{id}/password")]
-    public async Task<IActionResult> UpdatePassword(string id, [FromBody] UpdatePasswordDto dto)
+    /// <remarks>This endpoint is only accessible by currently logged-in user.</remarks>
+    /// <response code="200"></response>
+    /// <response code="400">If changing password failed.</response>
+    /// <response code="401">If the request is not authenticated.</response>
+    /// <response code="404">If the user is not found.</response>
+    [HttpPut("me/password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdatePassword([FromBody] UpdatePasswordDto dto)
     {
-        var user = await userManager.FindByIdAsync(id);
-
-        if (user == null)
+        var currentUserId = userManager.GetUserId(User);
+        if (currentUserId == null)
+        {
+            return Unauthorized();
+        }
+        var currentUser = await userManager.FindByIdAsync(currentUserId);
+        if (currentUser == null)
         {
             return NotFound(new { Message = "User not found" });
         }
         
-        var result = await userManager.ChangePasswordAsync(user, dto.CurrentPassword, dto.NewPassword);
+        var result = await userManager.ChangePasswordAsync(currentUser, dto.CurrentPassword, dto.NewPassword);
 
         if (!result.Succeeded)
         {
             return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
         }
 
-        logger.LogInformation("User {UserId} password updated successfully", user.Id);
+        logger.LogInformation("User {UserId} password updated successfully", currentUser.Id);
 
         return Ok(new { Message = "Password updated successfully" });
     }
 
     /// <summary>
-    /// Delete user account permanently. Quizzes created by the user will be transferred to a system account.
+    /// Delete current user account permanently. Quizzes created by the user will be transferred to a system account.
     /// </summary>
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteUser(string id)
+    /// <remarks>This endpoint is only accessible by currently logged-in user.</remarks>
+    /// <response code="200"></response>
+    /// <response code="400">If deleting failed.</response>
+    /// <response code="401">If the request is not authenticated.</response>
+    /// <response code="404">If the user is not found.</response>
+    [HttpDelete("me")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteUser()
     {
-        var result = await accountDeletionService.DeleteUserAsync(id);
+        var currentUserId = userManager.GetUserId(User);
+        if (currentUserId == null)
+        {
+            return Unauthorized();
+        }
+        var result = await accountDeletionService.DeleteUserAsync(currentUserId);
 
         if (!result.Succeeded)
         {
@@ -144,77 +211,20 @@ public class AccountController(
             };
         }
 
-        logger.LogInformation("User {UserId} deleted successfully", id);
+        logger.LogInformation("User {UserId} deleted successfully", currentUserId);
 
         return Ok(new { Message = "User deleted successfully" });
     }
 
     /// <summary>
-    /// Add user to role
+    /// Retrieves a user roles by their unique identifier.
     /// </summary>
-    [HttpPost("{id}/roles/{role}")]
-    [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> AddToRole(string id, string role)
-    {
-        var user = await userManager.FindByIdAsync(id);
-
-        if (user == null)
-        {
-            return NotFound(new { Message = "User not found" });
-        }
-
-        if (!await roleManager.RoleExistsAsync(role))
-        {
-            return BadRequest(new { Message = $"Invalid role. Valid roles are: {string.Join(", ", await roleManager.Roles.ToListAsync())}" });
-        }
-
-        var result = await userManager.AddToRoleAsync(user, role);
-
-        if (!result.Succeeded)
-        {
-            return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
-        }
-
-        logger.LogInformation("User {UserId} added to role {Role}", user.Id, role);
-
-        return Ok(new { Message = $"User added to role {role}" });
-    }
-
-    /// <summary>
-    /// Remove user from role
-    /// </summary>
-    [HttpDelete("{id}/roles/{role}")]
-    [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> RemoveFromRole(string id, string role)
-    {
-        var user = await userManager.FindByIdAsync(id);
-
-        if (user == null)
-        {
-            return NotFound(new { Message = "User not found" });
-        }
-
-        if (!await roleManager.RoleExistsAsync(role))
-        {
-            return BadRequest(new { Message = $"Invalid role. Valid roles are: {string.Join(", ", await roleManager.Roles.ToListAsync())}" });
-        }
-
-        var result = await userManager.RemoveFromRoleAsync(user, role);
-
-        if (!result.Succeeded)
-        {
-            return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
-        }
-
-        logger.LogInformation("User {UserId} removed from role {Role}", user.Id, role);
-
-        return Ok(new { Message = $"User removed from role {role}" });
-    }
-
-    /// <summary>
-    /// Get user roles
-    /// </summary>
+    /// <param name="id">The GUID of the user to retrieve their roles.</param>
+    /// <returns>The user roles if found.</returns>
+    /// <response code="200">Returns the requested user roles.</response>
+    /// <response code="404">If the user is not found.</response>
     [HttpGet("{id}/roles")]
+    [ProducesResponseType(typeof(UserRolesResponseDto),StatusCodes.Status200OK)]
     public async Task<IActionResult> GetUserRoles(string id)
     {
         var user = await userManager.FindByIdAsync(id);
@@ -226,6 +236,6 @@ public class AccountController(
 
         var roles = await userManager.GetRolesAsync(user);
 
-        return Ok(new { UserId = user.Id, Roles = roles });
+        return Ok(new UserResponseDto { UserId = user.Id, Roles = roles });
     }
 }
