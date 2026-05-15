@@ -45,8 +45,6 @@ A modern quiz platform built with ASP.NET Core 10 and Next.js, enabling teachers
 | **PostgreSQL**            | Primary database               |
 | **ASP.NET Core Identity** | Authentication & authorization |
 | **JWT**                   | Token-based authentication     |
-| **AutoMapper**            | Object-object mapping          |
-| **FluentValidation**      | Request validation             |
 | **Serilog**               | Structured logging             |
 
 ### Frontend
