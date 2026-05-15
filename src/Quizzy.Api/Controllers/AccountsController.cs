@@ -17,10 +17,10 @@ namespace Quizzy.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class AccountController(
+public class AccountsController(
     UserManager<ApplicationUser> userManager,
     IAccountDeletionService accountDeletionService,
-    ILogger<AccountController> logger)
+    ILogger<AccountsController> logger)
     : ControllerBase
 {
     /// <summary>
