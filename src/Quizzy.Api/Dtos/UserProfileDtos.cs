@@ -30,3 +30,9 @@ public class UpdateProfileImageDto
     [MaxLength(512)]
     public string? ProfileImageUrl { get; set; }
 }
+
+public class UserRolesResponseDto
+{
+    public string UserId { get; set; } = string.Empty;
+    public IList <string> Roles { get; set; } = new List<string>();
+}
