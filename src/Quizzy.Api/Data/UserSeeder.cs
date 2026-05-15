@@ -1,142 +1,114 @@
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Quizzy.Api.Models;
 
 namespace Quizzy.Api.Data;
 
 public static class UserSeeder
 {
-    /// <summary>
-    /// System user ID for orphaned content when users delete their accounts
-    /// </summary>
     public const string DeletedUserId = "deleted-user-0000-0000-000000000000";
     private const string DeletedUserName = "Deleted_Account";
     private const string DeletedUserEmail = "deleted@system.local";
 
-    /// <summary>
-    /// Default admin credentials for development/initial setup
-    /// </summary>
-    private const string DefaultAdminUsername = "admin";
-    private const string DefaultAdminEmail = "admin@gmail.com";
-    private const string DefaultAdminPassword = "123123123";
+    private const string AdminUserId = "admin-user-0000-0000-000000000000";
+    public const string TeacherUserId = "teacher-user-000-0000-000000000000";
+    private const string StudentUserId = "student-user-000-0000-000000000000";
+
+    private const string AdminUsername = "admin";
+    private const string AdminEmail = "admin@gmail.com";
+    private const string AdminPassword = "123123123";
+
+    private const string TeacherUsername = "teacher";
+    private const string TeacherEmail = "teacher@gmail.com";
+    private const string TeacherPassword = "123123123";
+
+    private const string StudentUsername = "student";
+    private const string StudentEmail = "student@gmail.com";
+    private const string StudentPassword = "123123123";
 
     public static async Task SeedAsync(IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("UserSeeder");
 
-        // Create or update the DeletedUser system account
-        var deletedUser = await userManager.FindByIdAsync(DeletedUserId);
-
-        if (deletedUser == null)
-        {
-            deletedUser = new ApplicationUser
-            {
-                Id = DeletedUserId,
-                UserName = DeletedUserName,
-                Email = DeletedUserEmail,
-                EmailConfirmed = true,
-                PhoneNumberConfirmed = false,
-                TwoFactorEnabled = false,
-                LockoutEnabled = false,
-                AccessFailedCount = 0
-            };
-
-            // Create with a random password that no one can know
-            var result = await userManager.CreateAsync(deletedUser, Guid.NewGuid().ToString("N"));
-
-            if (result.Succeeded)
-            {
-                logger.LogInformation("Created system DeletedUser account with ID: {UserId}", DeletedUserId);
-            }
-            else
-            {
-                logger.LogError("Failed to create DeletedUser account: {Errors}", 
-                    string.Join(", ", result.Errors.Select(e => e.Description)));
-            }
-        }
-        else
-        {
-            // Ensure the system user exists and is properly configured
-            if (deletedUser.UserName != DeletedUserName || deletedUser.Email != DeletedUserEmail)
-            {
-                deletedUser.UserName = DeletedUserName;
-                deletedUser.Email = DeletedUserEmail;
-                await userManager.UpdateAsync(deletedUser);
-                logger.LogInformation("Updated DeletedUser account");
-            }
-        }
-
-        // Create default admin if no admins exist
-        await CreateDefaultAdminIfNeeded(userManager, roleManager, logger);
+        await SeedSystemDeletedUserAsync(userManager, logger);
+        await SeedRoleAccountAsync(userManager, dbContext, logger, AdminUserId, AdminUsername, AdminEmail, AdminPassword, "Admin");
+        await SeedRoleAccountAsync(userManager, dbContext, logger, TeacherUserId, TeacherUsername, TeacherEmail, TeacherPassword, "Teacher");
+        await SeedRoleAccountAsync(userManager, dbContext, logger, StudentUserId, StudentUsername, StudentEmail, StudentPassword, "Student");
     }
 
-    /// <summary>
-    /// Creates a default admin user if no admin users currently exist in the system.
-    /// This is useful for initial setup and development scenarios.
-    /// </summary>
-    private static async Task CreateDefaultAdminIfNeeded(
+    private static async Task SeedSystemDeletedUserAsync(
         UserManager<ApplicationUser> userManager,
-        RoleManager<ApplicationRole> roleManager,
         ILogger logger)
     {
-        // Check if any admins already exist
-        var adminRole = await roleManager.FindByNameAsync("Admin");
-        if (adminRole == null)
-        {
-            logger.LogWarning("Admin role not found. Skipping default admin creation.");
-            return;
-        }
+        var existing = await userManager.FindByIdAsync(DeletedUserId);
+        if (existing != null) return;
 
-        var adminsExist = await userManager.GetUsersInRoleAsync("Admin");
-        if (adminsExist.Any())
+        var user = new ApplicationUser
         {
-            logger.LogInformation("Admin user(s) already exist. Skipping default admin creation.");
-            return;
-        }
-
-        // Create default admin account
-        var adminUser = new ApplicationUser
-        {
-            UserName = DefaultAdminUsername,
-            Email = DefaultAdminEmail,
+            Id = DeletedUserId,
+            UserName = DeletedUserName,
+            Email = DeletedUserEmail,
             EmailConfirmed = true,
-            PhoneNumberConfirmed = false,
-            TwoFactorEnabled = false,
-            LockoutEnabled = false,
-            AccessFailedCount = 0
+            LockoutEnabled = false
         };
 
-        var result = await userManager.CreateAsync(adminUser, DefaultAdminPassword);
+        var result = await userManager.CreateAsync(user, Guid.NewGuid().ToString("N") + "Aa1!");
+
+        if (result.Succeeded)
+            logger.LogInformation("Created system DeletedUser account");
+        else
+            logger.LogError("Failed to create DeletedUser: {Errors}", string.Join(", ", result.Errors.Select(e => e.Description)));
+    }
+
+    private static async Task SeedRoleAccountAsync(
+        UserManager<ApplicationUser> userManager,
+        ApplicationDbContext dbContext,
+        ILogger logger,
+        string userId,
+        string username,
+        string email,
+        string password,
+        string role)
+    {
+        var existing = await userManager.FindByIdAsync(userId);
+        if (existing != null) return;
+
+        var user = new ApplicationUser
+        {
+            Id = userId,
+            UserName = username,
+            Email = email,
+            EmailConfirmed = true,
+            LockoutEnabled = false
+        };
+
+        var result = await userManager.CreateAsync(user, password);
 
         if (!result.Succeeded)
         {
-            logger.LogError("Failed to create default admin user: {Errors}",
-                string.Join(", ", result.Errors.Select(e => e.Description)));
+            logger.LogError("Failed to create seed {Role} user: {Errors}", role, string.Join(", ", result.Errors.Select(e => e.Description)));
             return;
         }
 
-        // Add Admin role to the new user
-        var roleResult = await userManager.AddToRoleAsync(adminUser, "Admin");
+        await userManager.AddToRoleAsync(user, role);
 
-        if (!roleResult.Succeeded)
+        var profile = new UserProfile
         {
-            logger.LogError("Failed to assign Admin role to default admin user: {Errors}",
-                string.Join(", ", roleResult.Errors.Select(e => e.Description)));
-            return;
-        }
+            UserId = userId,
+            FirstName = char.ToUpper(username[0]) + username[1..],
+            LastName = "Seed",
+            Bio = $"Default {role.ToLower()} seed account.",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
 
-        logger.LogInformation(
-            "Created default admin user with username '{Username}' and email '{Email}'. " +
-            "Please change the password immediately in a production environment.",
-            DefaultAdminUsername,
-            DefaultAdminEmail);
+        dbContext.UserProfiles.Add(profile);
+        await dbContext.SaveChangesAsync();
+
+        logger.LogInformation("Created seed {Role} account — username: '{Username}', password: '{Password}'", role, username, password);
     }
 
-    /// <summary>
-    /// Get the DeletedUser system account ID
-    /// </summary>
     public static string GetDeletedUserId() => DeletedUserId;
 }

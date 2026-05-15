@@ -99,9 +99,10 @@ builder.Services.AddScoped<IAccountDeletionService, AccountDeletionService>();
 
 var app = builder.Build();
 
-// Seed fixed roles (Admin, Teacher, Student) and system DeletedUser account
 await RoleSeeder.SeedAsync(app.Services);
 await UserSeeder.SeedAsync(app.Services);
+await CategorySeeder.SeedAsync(app.Services);
+await QuizSeeder.SeedAsync(app.Services);
 
 if (app.Environment.IsDevelopment())
 {
