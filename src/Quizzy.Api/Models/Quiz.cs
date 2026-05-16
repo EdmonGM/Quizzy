@@ -8,7 +8,7 @@ public class Quiz : SoftDeleteEntity
     [MaxLength(128)]
     public string Title { get; set; } = string.Empty;
     [Required]
-    [MaxLength(128)]
+    [MaxLength(512)]
     public string Description { get; set; } = string.Empty;
     public string TeacherId { get; set; } = string.Empty;
     public ApplicationUser Teacher { get; set; } = null!;
