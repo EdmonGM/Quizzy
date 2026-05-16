@@ -1,23 +1,57 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Quizzy.Api.Data;
 using Quizzy.Api.Dtos;
 using Quizzy.Api.Mappers;
+using Quizzy.Api.Models;
 
 namespace Quizzy.Api.Controllers;
 
+/// <summary>
+/// Manages question operations including listing, retrieving, creating, updating, deleting, and reordering questions.
+/// </summary>
+/// <remarks>
+/// This controller requires authentication for all endpoints. Teacher role is required for create, update, delete, and reorder operations.
+/// </remarks>
 [ApiController]
 [Route("api/[controller]")]
-// [Authorize]
-public class QuestionsController(ApplicationDbContext context) : ControllerBase
+[Authorize]
+public class QuestionsController(
+    ApplicationDbContext context,
+    UserManager<ApplicationUser> userManager) : ControllerBase
 {
+    private const string RoleTeacher = "Teacher";
+    private const string UserNotAuthenticatedMessage = "User not authenticated";
+    private const string QuestionNotFoundMessage = "Question not found";
+    private const string QuizNotFoundMessage = "Quiz not found";
+    private const string CannotDeleteQuestionWithAnswersMessage = "Cannot delete question with existing student answers";
+    private const string QuestionsNotFoundMessage = "One or more questions not found";
+    private const string AtLeastOneCorrectChoiceMessage = "At least one choice must be marked as correct";
+
     /// <summary>
-    /// Get all questions for a specific quiz
+    /// Retrieves all questions for a specific quiz, ordered by their index.
     /// </summary>
+    /// <param name="quizId">The GUID of the quiz whose questions to retrieve.</param>
+    /// <returns>List of questions with their choices.</returns>
+    /// <response code="200">Returns the list of questions.</response>
+    /// <response code="401">If the request is not authenticated.</response>
+    /// <response code="404">If the quiz is not found.</response>
     [HttpGet("quiz/{quizId:guid}")]
-    public async Task<IActionResult> GetQuestionsByQuiz(Guid quizId)
+    [ProducesResponseType(typeof(List<QuestionResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetQuestionsByQuizId(Guid quizId)
     {
+        var quizExists = await context.Quizzes
+            .AnyAsync(q => q.Id == quizId && !q.IsDeleted);
+
+        if (!quizExists)
+        {
+            return NotFound(new { Message = QuizNotFoundMessage });
+        }
+
         var questions = await context.Questions
             .Include(q => q.Choices)
             .Where(q => q.QuizId == quizId)
@@ -29,9 +63,17 @@ public class QuestionsController(ApplicationDbContext context) : ControllerBase
     }
 
     /// <summary>
-    /// Get a question by ID with its choices
+    /// Retrieves a question by its unique identifier, including its choices.
     /// </summary>
+    /// <param name="id">The GUID of the question to retrieve.</param>
+    /// <returns>The question details if found.</returns>
+    /// <response code="200">Returns the requested question.</response>
+    /// <response code="401">If the request is not authenticated.</response>
+    /// <response code="404">If the question is not found.</response>
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(QuestionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetQuestionById(Guid id)
     {
         var question = await context.Questions
@@ -40,17 +82,30 @@ public class QuestionsController(ApplicationDbContext context) : ControllerBase
 
         if (question == null)
         {
-            return NotFound(new { Message = "Question not found" });
+            return NotFound(new { Message = QuestionNotFoundMessage });
         }
 
         return Ok(question.ToQuestionResponseDto());
     }
 
     /// <summary>
-    /// Create a new question with choices for a quiz
+    /// Creates a new question with choices for a quiz.
     /// </summary>
+    /// <remarks>This endpoint requires Teacher role. The user must own the quiz.</remarks>
+    /// <param name="dto">The question and choices data to create.</param>
+    /// <returns>The created question details.</returns>
+    /// <response code="201">Returns the newly created question.</response>
+    /// <response code="400">If the request body is invalid or no choice is marked as correct.</response>
+    /// <response code="401">If the request is not authenticated.</response>
+    /// <response code="403">If the current user does not have Teacher role or does not own the quiz.</response>
+    /// <response code="404">If the quiz is not found.</response>
     [HttpPost]
-    [Authorize(Roles = "Teacher")]
+    [Authorize(Roles = RoleTeacher)]
+    [ProducesResponseType(typeof(QuestionResponseDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CreateQuestion([FromBody] CreateQuestionDto dto)
     {
         if (!ModelState.IsValid)
@@ -58,20 +113,24 @@ public class QuestionsController(ApplicationDbContext context) : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!dto.Choices.Any(c => c.IsCorrect))
+        {
+            return BadRequest(new { Message = AtLeastOneCorrectChoiceMessage });
+        }
+
+        var userId = userManager.GetUserId(User);
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { Message = UserNotAuthenticatedMessage });
         }
 
-        // Verify quiz exists and user owns it
         var quiz = await context.Quizzes
             .FirstOrDefaultAsync(q => q.Id == dto.QuizId && !q.IsDeleted);
 
         if (quiz == null)
         {
-            return NotFound(new { Message = "Quiz not found" });
+            return NotFound(new { Message = QuizNotFoundMessage });
         }
 
         if (quiz.TeacherId != userId)
@@ -80,25 +139,42 @@ public class QuestionsController(ApplicationDbContext context) : ControllerBase
         }
 
         var question = dto.ToQuestion();
-        await context.Questions.AddAsync(question);
+        context.Questions.Add(question);
 
-        // Add choices
         foreach (var choiceDto in dto.Choices)
         {
             var choice = choiceDto.ToChoice(question.Id);
-            await context.Choices.AddAsync(choice);
+            context.Choices.Add(choice);
         }
 
         await context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetQuestionById), new { id = question.Id }, question.ToQuestionResponseDto());
+        var createdQuestion = await context.Questions
+            .Include(q => q.Choices)
+            .FirstOrDefaultAsync(q => q.Id == question.Id);
+
+        return CreatedAtAction(nameof(GetQuestionById), new { id = question.Id }, createdQuestion!.ToQuestionResponseDto());
     }
 
     /// <summary>
-    /// Update a question and its choices
+    /// Updates an existing question and its choices.
     /// </summary>
+    /// <remarks>This endpoint requires Teacher role. The user must own the quiz this question belongs to.</remarks>
+    /// <param name="id">The GUID of the question to update.</param>
+    /// <param name="dto">The updated question and choices data.</param>
+    /// <returns>The updated question details.</returns>
+    /// <response code="200">Returns the updated question.</response>
+    /// <response code="400">If the request body is invalid or no choice is marked as correct.</response>
+    /// <response code="401">If the request is not authenticated.</response>
+    /// <response code="403">If the current user does not have Teacher role or does not own the quiz.</response>
+    /// <response code="404">If the question or quiz is not found.</response>
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "Teacher")]
+    [Authorize(Roles = RoleTeacher)]
+    [ProducesResponseType(typeof(QuestionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateQuestion(Guid id, [FromBody] UpdateQuestionDto dto)
     {
         if (!ModelState.IsValid)
@@ -106,11 +182,16 @@ public class QuestionsController(ApplicationDbContext context) : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!dto.Choices.Any(c => c.IsCorrect))
+        {
+            return BadRequest(new { Message = AtLeastOneCorrectChoiceMessage });
+        }
+
+        var userId = userManager.GetUserId(User);
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { Message = UserNotAuthenticatedMessage });
         }
 
         var question = await context.Questions
@@ -119,32 +200,33 @@ public class QuestionsController(ApplicationDbContext context) : ControllerBase
 
         if (question == null)
         {
-            return NotFound(new { Message = "Question not found" });
+            return NotFound(new { Message = QuestionNotFoundMessage });
         }
 
-        // Verify user owns the quiz this question belongs to
         var quiz = await context.Quizzes
             .FirstOrDefaultAsync(q => q.Id == question.QuizId && !q.IsDeleted);
 
-        if (quiz == null || quiz.TeacherId != userId)
+        if (quiz == null)
+        {
+            return NotFound(new { Message = QuizNotFoundMessage });
+        }
+
+        if (quiz.TeacherId != userId)
         {
             return Forbid();
         }
 
         question.UpdateQuestionFromDto(dto);
 
-        // Update existing choices and add new ones
         var existingChoiceIds = question.Choices.Select(c => c.Id).ToList();
         var incomingChoiceIds = dto.Choices.Where(c => c.Id.HasValue).Select(c => c.Id!.Value).ToList();
 
-        // Remove choices that are no longer present
         var choicesToDelete = question.Choices.Where(c => !incomingChoiceIds.Contains(c.Id)).ToList();
         foreach (var choice in choicesToDelete)
         {
             context.Choices.Remove(choice);
         }
 
-        // Update or add choices
         foreach (var choiceDto in dto.Choices)
         {
             if (choiceDto.Id.HasValue && existingChoiceIds.Contains(choiceDto.Id.Value))
@@ -155,7 +237,7 @@ public class QuestionsController(ApplicationDbContext context) : ControllerBase
             else
             {
                 var newChoice = choiceDto.ToChoice(question.Id);
-                await context.Choices.AddAsync(newChoice);
+                question.Choices.Add(newChoice);
             }
         }
 
@@ -165,17 +247,29 @@ public class QuestionsController(ApplicationDbContext context) : ControllerBase
     }
 
     /// <summary>
-    /// Delete a question (and its choices)
+    /// Deletes a question and its associated choices.
     /// </summary>
+    /// <remarks>This endpoint requires Teacher role. The user must own the quiz. Cannot delete questions with existing student answers.</remarks>
+    /// <param name="id">The GUID of the question to delete.</param>
+    /// <response code="204">Question deleted successfully.</response>
+    /// <response code="400">If the question has existing student answers.</response>
+    /// <response code="401">If the request is not authenticated.</response>
+    /// <response code="403">If the current user does not have Teacher role or does not own the quiz.</response>
+    /// <response code="404">If the question or quiz is not found.</response>
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "Teacher")]
+    [Authorize(Roles = RoleTeacher)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteQuestion(Guid id)
     {
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var userId = userManager.GetUserId(User);
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { Message = UserNotAuthenticatedMessage });
         }
 
         var question = await context.Questions
@@ -184,28 +278,30 @@ public class QuestionsController(ApplicationDbContext context) : ControllerBase
 
         if (question == null)
         {
-            return NotFound(new { Message = "Question not found" });
+            return NotFound(new { Message = QuestionNotFoundMessage });
         }
 
-        // Verify user owns the quiz this question belongs to
         var quiz = await context.Quizzes
             .FirstOrDefaultAsync(q => q.Id == question.QuizId && !q.IsDeleted);
 
-        if (quiz == null || quiz.TeacherId != userId)
+        if (quiz == null)
+        {
+            return NotFound(new { Message = QuizNotFoundMessage });
+        }
+
+        if (quiz.TeacherId != userId)
         {
             return Forbid();
         }
 
-        // Check if question has student answers
         var hasAnswers = await context.StudentAnswers
             .AnyAsync(a => a.QuestionId == id);
 
         if (hasAnswers)
         {
-            return BadRequest(new { Message = "Cannot delete question with existing student answers" });
+            return BadRequest(new { Message = CannotDeleteQuestionWithAnswersMessage });
         }
 
-        // Remove associated choices
         context.Choices.RemoveRange(question.Choices);
         context.Questions.Remove(question);
 
@@ -215,10 +311,22 @@ public class QuestionsController(ApplicationDbContext context) : ControllerBase
     }
 
     /// <summary>
-    /// Reorder questions in a quiz
+    /// Reorders questions within a quiz.
     /// </summary>
+    /// <remarks>This endpoint requires Teacher role. The user must own all questions being reordered.</remarks>
+    /// <param name="dto">List of question IDs and their new order indices.</param>
+    /// <response code="204">Questions reordered successfully.</response>
+    /// <response code="400">If the request body is invalid.</response>
+    /// <response code="401">If the request is not authenticated.</response>
+    /// <response code="403">If the current user does not have Teacher role or does not own the questions.</response>
+    /// <response code="404">If one or more questions are not found.</response>
     [HttpPut("reorder")]
-    [Authorize(Roles = "Teacher")]
+    [Authorize(Roles = RoleTeacher)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ReorderQuestions([FromBody] List<ReorderQuestionDto> dto)
     {
         if (!ModelState.IsValid)
@@ -226,11 +334,11 @@ public class QuestionsController(ApplicationDbContext context) : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var userId = userManager.GetUserId(User);
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { Message = UserNotAuthenticatedMessage });
         }
 
         var questionIds = dto.Select(d => d.QuestionId).ToList();
@@ -238,7 +346,14 @@ public class QuestionsController(ApplicationDbContext context) : ControllerBase
             .Where(q => questionIds.Contains(q.Id))
             .ToListAsync();
 
-        // Verify user owns all questions
+        var foundIds = questions.Select(q => q.Id).ToHashSet();
+        var missingIds = dto.Select(d => d.QuestionId).Where(id => !foundIds.Contains(id)).ToList();
+
+        if (missingIds.Any())
+        {
+            return NotFound(new { Message = QuestionsNotFoundMessage });
+        }
+
         var quizIds = questions.Select(q => q.QuizId).Distinct().ToList();
         var quizzes = await context.Quizzes
             .Where(q => quizIds.Contains(q.Id) && !q.IsDeleted)
@@ -261,4 +376,3 @@ public class QuestionsController(ApplicationDbContext context) : ControllerBase
         return NoContent();
     }
 }
-
