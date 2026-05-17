@@ -16,6 +16,11 @@ public class RolesController(
     ILogger<RolesController> logger)
     : ControllerBase
 {
+    private const string RoleAdmin = "Admin";
+    private const string RoleTeacher = "Teacher";
+    private const string RoleStudent = "Student";
+    private static readonly string[] ValidRoles = [RoleAdmin, RoleTeacher, RoleStudent];
+
     /// <summary>
     /// Get all roles (Admin, Teacher, Student)
     /// </summary>
@@ -24,7 +29,7 @@ public class RolesController(
     {
         var roles = await roleManager.Roles.ToListAsync();
 
-        return Ok(roles.Select(r => new { RoleId = r.Id, RoleName = r.Name }));
+        return Ok(roles.Select(r => new { roleId = r.Id, roleName = r.Name }));
     }
 
     /// <summary>
@@ -38,14 +43,14 @@ public class RolesController(
 
         if (role == null)
         {
-            return NotFound(new { Message = "Role not found" });
+            return NotFound(new { message = "Role not found" });
         }
 
         var users = await userManager.GetUsersInRoleAsync(role.Name!);
 
         return Ok(users.Select(u => u.ToUserResponseDto([role.Name!])));
     }
-    
+
     /// <summary>
     /// Add user to role
     /// </summary>
@@ -57,24 +62,24 @@ public class RolesController(
 
         if (user == null)
         {
-            return NotFound(new { Message = "User not found" });
+            return NotFound(new { message = "User not found" });
         }
 
-        if (!await roleManager.RoleExistsAsync(role))
+        if (!ValidRoles.Contains(role))
         {
-            return BadRequest(new { Message = $"Invalid role. Valid roles are: {string.Join(", ", await roleManager.Roles.ToListAsync())}" });
+            return BadRequest(new { message = $"Invalid role. Valid roles are: {string.Join(", ", ValidRoles)}" });
         }
 
         var result = await userManager.AddToRoleAsync(user, role);
 
         if (!result.Succeeded)
         {
-            return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
+            return BadRequest(new { message = "Failed to add user to role", errors = result.Errors.Select(e => e.Description) });
         }
 
         logger.LogInformation("User {UserId} added to role {Role}", user.Id, role);
 
-        return Ok(new { Message = $"User added to role {role}" });
+        return Ok(new { message = $"User added to role {role}" });
     }
 
     /// <summary>
@@ -88,23 +93,23 @@ public class RolesController(
 
         if (user == null)
         {
-            return NotFound(new { Message = "User not found" });
+            return NotFound(new { message = "User not found" });
         }
 
-        if (!await roleManager.RoleExistsAsync(role))
+        if (!ValidRoles.Contains(role))
         {
-            return BadRequest(new { Message = $"Invalid role. Valid roles are: {string.Join(", ", await roleManager.Roles.ToListAsync())}" });
+            return BadRequest(new { message = $"Invalid role. Valid roles are: {string.Join(", ", ValidRoles)}" });
         }
 
         var result = await userManager.RemoveFromRoleAsync(user, role);
 
         if (!result.Succeeded)
         {
-            return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
+            return BadRequest(new { message = "Failed to remove user from role", errors = result.Errors.Select(e => e.Description) });
         }
 
         logger.LogInformation("User {UserId} removed from role {Role}", user.Id, role);
 
-        return Ok(new { Message = $"User removed from role {role}" });
+        return Ok(new { message = $"User removed from role {role}" });
     }
 }

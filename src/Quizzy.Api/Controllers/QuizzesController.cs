@@ -61,7 +61,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = UserNotAuthenticatedMessage });
+            return Unauthorized(new { message = UserNotAuthenticatedMessage });
         }
 
         var quizzes = await context.Quizzes
@@ -148,7 +148,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
 
         if (quiz == null)
         {
-            return NotFound(new { Message = QuizNotFoundMessage });
+            return NotFound(new { message = QuizNotFoundMessage });
         }
 
         return Ok(quiz.ToQuizDetailedResponseDto());
@@ -174,14 +174,14 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(ModelState);
+            return ValidationProblem(ModelState);
         }
 
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = UserNotAuthenticatedMessage });
+            return Unauthorized(new { message = UserNotAuthenticatedMessage });
         }
 
         var category = await context.Categories
@@ -189,7 +189,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
 
         if (category == null)
         {
-            return BadRequest(new { Message = InvalidCategoryMessage });
+            return BadRequest(new { message = InvalidCategoryMessage });
         }
 
         var quiz = dto.ToQuiz(userId);
@@ -228,14 +228,14 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(ModelState);
+            return ValidationProblem(ModelState);
         }
 
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = UserNotAuthenticatedMessage });
+            return Unauthorized(new { message = UserNotAuthenticatedMessage });
         }
 
         var quiz = await context.Quizzes
@@ -247,7 +247,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
 
         if (quiz == null)
         {
-            return NotFound(new { Message = QuizNotFoundMessage });
+            return NotFound(new { message = QuizNotFoundMessage });
         }
 
         if (quiz.TeacherId != userId)
@@ -262,7 +262,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
 
             if (category == null)
             {
-                return BadRequest(new { Message = InvalidCategoryMessage });
+                return BadRequest(new { message = InvalidCategoryMessage });
             }
         }
 
@@ -293,7 +293,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = UserNotAuthenticatedMessage });
+            return Unauthorized(new { message = UserNotAuthenticatedMessage });
         }
 
         var quiz = await context.Quizzes
@@ -301,7 +301,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
 
         if (quiz == null || quiz.IsDeleted)
         {
-            return NotFound(new { Message = QuizNotFoundMessage });
+            return NotFound(new { message = QuizNotFoundMessage });
         }
 
         if (quiz.TeacherId != userId)
@@ -340,7 +340,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = UserNotAuthenticatedMessage });
+            return Unauthorized(new { message = UserNotAuthenticatedMessage });
         }
 
         var quiz = await context.Quizzes
@@ -350,7 +350,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
 
         if (quiz == null)
         {
-            return NotFound(new { Message = QuizNotFoundMessage });
+            return NotFound(new { message = QuizNotFoundMessage });
         }
 
         if (quiz.TeacherId != userId)

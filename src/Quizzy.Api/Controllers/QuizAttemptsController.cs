@@ -24,7 +24,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized();
+            return Unauthorized(new { message = "User not authenticated" });
         }
 
         var quiz = await context.Quizzes
@@ -32,7 +32,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (quiz == null)
         {
-            return NotFound("Quiz not found");
+            return NotFound(new { message = "Quiz not found" });
         }
 
         var attempts = await context.QuizAttempts
@@ -40,7 +40,6 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
             .OrderBy(a => a.AttemptNumber)
             .Select(a => a.ToQuizAttemptSummaryDto())
             .ToListAsync();
-
 
         return Ok(attempts);
     }
@@ -55,7 +54,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized();
+            return Unauthorized(new { message = "User not authenticated" });
         }
 
         var attempt = await context.QuizAttempts
@@ -65,10 +64,9 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt == null)
         {
-            return NotFound();
+            return NotFound(new { message = "Attempt not found" });
         }
 
-        // Only allow students to view their own attempts
         if (attempt.StudentId != userId)
         {
             return Forbid();
@@ -76,7 +74,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt.Status != QuizAttemptStatus.InProgress)
         {
-            return BadRequest("Attempt is not in progress");
+            return BadRequest(new { message = "Attempt is not in progress" });
         }
 
         var questions = await context.Questions
@@ -111,7 +109,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized();
+            return Unauthorized(new { message = "User not authenticated" });
         }
 
         var quiz = await context.Quizzes
@@ -121,7 +119,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (quiz == null)
         {
-            return NotFound();
+            return NotFound(new { message = "Quiz not found" });
         }
 
         if (!quiz.IsPublished)
@@ -129,7 +127,6 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
             return Forbid();
         }
 
-        // Validate access code if required
         if (!string.IsNullOrEmpty(quiz.AccessCode))
         {
             if (string.IsNullOrEmpty(dto.AccessCode) || quiz.AccessCode != dto.AccessCode)
@@ -138,22 +135,20 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
             }
         }
 
-        // Check max attempts
         var completedAttempts = quiz.QuizAttempts
             .Count(a => a.StudentId == userId && a.Status == QuizAttemptStatus.Completed);
 
         if (quiz.MaxAttempts.HasValue && completedAttempts >= quiz.MaxAttempts.Value)
         {
-            return BadRequest(new { Message = "Maximum number of attempts reached" });
+            return BadRequest(new { message = "Maximum number of attempts reached" });
         }
 
-        // Check for existing in-progress attempt
         var existingInProgress = await context.QuizAttempts
             .FirstOrDefaultAsync(a => a.QuizId == dto.QuizId && a.StudentId == userId && a.Status == QuizAttemptStatus.InProgress);
 
         if (existingInProgress != null)
         {
-            return Conflict(new { Message = "You already have an in-progress attempt for this quiz" });
+            return Conflict(new { message = "You already have an in-progress attempt for this quiz" });
         }
 
         var attemptNumber = quiz.QuizAttempts.Count(a => a.StudentId == userId) + 1;
@@ -189,7 +184,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(currentUserId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { message = "User not authenticated" });
         }
 
         var attempt = await context.QuizAttempts
@@ -198,7 +193,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt == null)
         {
-            return NotFound(new { Message = "Attempt not found" });
+            return NotFound(new { message = "Attempt not found" });
         }
 
         if (attempt.StudentId != currentUserId)
@@ -208,17 +203,16 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt.Status != QuizAttemptStatus.InProgress)
         {
-            return BadRequest(new { Message = "Attempt is not in progress" });
+            return BadRequest(new { message = "Attempt is not in progress" });
         }
 
-        // Check time limit
         if (attempt.Quiz.TimeLimitMinutes > 0)
         {
             var elapsedSeconds = (int)(DateTime.UtcNow - attempt.StartedAt).TotalSeconds;
             var totalSeconds = attempt.Quiz.TimeLimitMinutes * 60;
             if (elapsedSeconds >= totalSeconds)
             {
-                return BadRequest(new { Message = "Time limit exceeded" });
+                return BadRequest(new { message = "Time limit exceeded" });
             }
         }
 
@@ -228,7 +222,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (question == null)
         {
-            return NotFound(new { Message = "Question not found in this quiz" });
+            return NotFound(new { message = "Question not found in this quiz" });
         }
 
         var choice = await context.Choices
@@ -236,31 +230,29 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (choice == null)
         {
-            return NotFound(new { Message = "Choice not found for this question" });
+            return NotFound(new { message = "Choice not found for this question" });
         }
 
-        // Check if answer already exists
         var existingAnswer = await context.StudentAnswers
             .FirstOrDefaultAsync(a => a.AttemptId == attemptId && a.QuestionId == dto.QuestionId);
 
         if (existingAnswer != null)
         {
-            // Update existing answer
             existingAnswer.ChoiceId = dto.ChoiceId;
             existingAnswer.ChoiceSnapshot = choice.Content;
             existingAnswer.QuestionSnapshot = question.Content;
             existingAnswer.IsCorrect = choice.IsCorrect;
             existingAnswer.UpdatedAt = DateTime.UtcNow;
-            
+
             await context.SaveChangesAsync();
-            
+
             return Ok(new SubmitAnswerResponseDto
             {
                 AnswerId = existingAnswer.Id,
                 Saved = true
             });
         }
-        // Create new answer
+
         var answer = new StudentAnswer
         {
             Id = Guid.NewGuid(),
@@ -276,7 +268,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         await context.StudentAnswers.AddAsync(answer);
         await context.SaveChangesAsync();
-        
+
         return Ok(new SubmitAnswerResponseDto
         {
             AnswerId = answer.Id,
@@ -294,7 +286,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(currentUserId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { message = "User not authenticated" });
         }
 
         var attempt = await context.QuizAttempts
@@ -306,7 +298,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt == null)
         {
-            return NotFound(new { Message = "Attempt not found" });
+            return NotFound(new { message = "Attempt not found" });
         }
 
         if (attempt.StudentId != currentUserId)
@@ -316,17 +308,15 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt.Status != QuizAttemptStatus.InProgress)
         {
-            return BadRequest(new { Message = "Attempt is not in progress" });
+            return BadRequest(new { message = "Attempt is not in progress" });
         }
 
-        // Check time limit
         if (attempt.Quiz.TimeLimitMinutes > 0)
         {
             var elapsedSeconds = (int)(DateTime.UtcNow - attempt.StartedAt).TotalSeconds;
             var totalSeconds = attempt.Quiz.TimeLimitMinutes * 60;
             if (elapsedSeconds >= totalSeconds)
             {
-                // Auto-submit due to time limit
                 attempt.Status = QuizAttemptStatus.Completed;
                 attempt.CompletedAt = DateTime.UtcNow;
             }
@@ -342,7 +332,6 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
         attempt.CompletedAt = DateTime.UtcNow;
         attempt.UpdatedAt = DateTime.UtcNow;
 
-        // Calculate score
         var score = 0;
         foreach (var answer in attempt.StudentAnswers)
         {
@@ -368,7 +357,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { message = "User not authenticated" });
         }
 
         var attempt = await context.QuizAttempts
@@ -376,7 +365,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt == null)
         {
-            return NotFound(new { Message = "Attempt not found" });
+            return NotFound(new { message = "Attempt not found" });
         }
 
         if (attempt.StudentId != userId)
@@ -386,7 +375,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt.Status != QuizAttemptStatus.InProgress)
         {
-            return BadRequest(new { Message = "Attempt is not in progress" });
+            return BadRequest(new { message = "Attempt is not in progress" });
         }
 
         attempt.Status = QuizAttemptStatus.Abandoned;
@@ -408,7 +397,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { message = "User not authenticated" });
         }
 
         var attempt = await context.QuizAttempts
@@ -420,7 +409,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt == null)
         {
-            return NotFound(new { Message = "Attempt not found" });
+            return NotFound(new { message = "Attempt not found" });
         }
 
         if (attempt.StudentId != userId)
@@ -430,7 +419,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt.Status != QuizAttemptStatus.Completed)
         {
-            return BadRequest(new { Message = "Attempt is not completed" });
+            return BadRequest(new { message = "Attempt is not completed" });
         }
 
         var answers = attempt.StudentAnswers.ToList();
@@ -448,7 +437,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { message = "User not authenticated" });
         }
 
         var quiz = await context.Quizzes
@@ -456,7 +445,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (quiz == null)
         {
-            return NotFound(new { Message = "Quiz not found" });
+            return NotFound(new { message = "Quiz not found" });
         }
 
         if (quiz.TeacherId != userId)
@@ -490,7 +479,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { message = "User not authenticated" });
         }
 
         var attempt = await context.QuizAttempts
@@ -503,10 +492,9 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt == null)
         {
-            return NotFound(new { Message = "Attempt not found" });
+            return NotFound(new { message = "Attempt not found" });
         }
 
-        // Verify teacher owns the quiz
         if (attempt.Quiz.TeacherId != userId)
         {
             return Forbid();

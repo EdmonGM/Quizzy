@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Transactions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -47,47 +46,36 @@ public class AuthController(
     {
         if (dto.Role is not RoleStudent and not RoleTeacher)
         {
-            return BadRequest(new { Message = "Invalid role. Must be 'Student' or 'Teacher'." });
+            return BadRequest(new { message = "Invalid role. Must be 'Student' or 'Teacher'." });
         }
 
         var user = dto.ToApplicationUser();
 
-        using var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
-        try
+        var result = await userManager.CreateAsync(user, dto.Password);
+
+        if (!result.Succeeded)
         {
-            var result = await userManager.CreateAsync(user, dto.Password);
-
-            if (!result.Succeeded)
-            {
-                return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
-            }
-
-            await userManager.AddToRoleAsync(user, dto.Role);
-
-            var profile = new UserProfile
-            {
-                UserId = user.Id,
-                User = user,
-                FirstName = dto.FirstName,
-                LastName = dto.LastName,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            await context.UserProfiles.AddAsync(profile);
-            await context.SaveChangesAsync();
-
-            scope.Complete();
-
-            logger.LogInformation("User {Username} registered successfully as {Role}", user.UserName, dto.Role);
-
-            return Ok(profile.ToUserProfileDto(user.UserName!, user.Email!));
+            return BadRequest(new { message = "Registration failed", errors = result.Errors.Select(e => e.Description) });
         }
-        catch
+
+        await userManager.AddToRoleAsync(user, dto.Role);
+
+        var profile = new UserProfile
         {
-            logger.LogError("Failed to register user {Username}", dto.Username);
-            return StatusCode(500, new { Message = "An error occurred during registration." });
-        }
+            UserId = user.Id,
+            User = user,
+            FirstName = dto.FirstName,
+            LastName = dto.LastName,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        await context.UserProfiles.AddAsync(profile);
+        await context.SaveChangesAsync();
+
+        logger.LogInformation("User {Username} registered successfully as {Role}", user.UserName, dto.Role);
+
+        return Ok(profile.ToUserProfileDto(user.UserName!, user.Email!));
     }
 
     /// <summary>
@@ -103,7 +91,7 @@ public class AuthController(
 
         if (!result.Succeeded)
         {
-            return BadRequest(new { Errors = result.Errors.Select(e => e.Description) });
+            return BadRequest(new { message = "Admin creation failed", errors = result.Errors.Select(e => e.Description) });
         }
 
         await userManager.AddToRoleAsync(user, RoleAdmin);
@@ -125,7 +113,7 @@ public class AuthController(
 
         var userResponseDto = user.ToUserResponseDto();
 
-        return Ok(new { Message = "Admin user created successfully", userResponseDto });
+        return Ok(new { message = "Admin user created successfully", user = userResponseDto });
     }
 
     /// <summary>
@@ -139,14 +127,14 @@ public class AuthController(
 
         if (user == null)
         {
-            return Unauthorized(new { Message = "Invalid username or password" });
+            return Unauthorized(new { message = "Invalid username or password" });
         }
 
         var result = await userManager.CheckPasswordAsync(user, dto.Password);
 
         if (!result)
         {
-            return Unauthorized(new { Message = "Invalid username or password" });
+            return Unauthorized(new { message = "Invalid username or password" });
         }
 
         var roles = await userManager.GetRolesAsync(user);
@@ -175,7 +163,7 @@ public class AuthController(
 
         if (principal == null)
         {
-            return BadRequest(new { Message = "Invalid access token" });
+            return BadRequest(new { message = "Invalid access token" });
         }
 
         var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -183,28 +171,28 @@ public class AuthController(
 
         if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(username))
         {
-            return BadRequest(new { Message = "Invalid token claims" });
+            return BadRequest(new { message = "Invalid token claims" });
         }
 
         var refreshTokenPrincipal = jwtTokenService.GetPrincipalFromRefreshToken(dto.RefreshToken);
 
         if (refreshTokenPrincipal == null)
         {
-            return BadRequest(new { Message = "Invalid or expired refresh token" });
+            return BadRequest(new { message = "Invalid or expired refresh token" });
         }
 
         var refreshTokenUserId = refreshTokenPrincipal.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (userId != refreshTokenUserId)
         {
-            return BadRequest(new { Message = "Token mismatch" });
+            return BadRequest(new { message = "Token mismatch" });
         }
 
         var user = await userManager.GetUserAsync(principal);
 
         if (user == null)
         {
-            return Unauthorized(new { Message = "User not found" });
+            return Unauthorized(new { message = "User not found" });
         }
 
         var roles = await userManager.GetRolesAsync(user);

@@ -73,7 +73,7 @@ public class CategoriesController(ApplicationDbContext context) : ControllerBase
 
         if (category == null)
         {
-            return NotFound(new { Message = CategoryNotFoundMessage });
+            return NotFound(new { message = CategoryNotFoundMessage });
         }
 
         var quizCount = await context.Quizzes
@@ -104,7 +104,7 @@ public class CategoriesController(ApplicationDbContext context) : ControllerBase
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(ModelState);
+            return ValidationProblem(ModelState);
         }
 
         var existingCategory = await context.Categories
@@ -112,7 +112,7 @@ public class CategoriesController(ApplicationDbContext context) : ControllerBase
 
         if (existingCategory)
         {
-            return Conflict(new { Message = DuplicateCategoryNameMessage });
+            return Conflict(new { message = DuplicateCategoryNameMessage });
         }
 
         var category = new Category
@@ -154,7 +154,7 @@ public class CategoriesController(ApplicationDbContext context) : ControllerBase
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(ModelState);
+            return ValidationProblem(ModelState);
         }
 
         var category = await context.Categories
@@ -163,7 +163,7 @@ public class CategoriesController(ApplicationDbContext context) : ControllerBase
 
         if (category == null)
         {
-            return NotFound(new { Message = CategoryNotFoundMessage });
+            return NotFound(new { message = CategoryNotFoundMessage });
         }
 
         if (category.Name != dto.Name)
@@ -173,7 +173,7 @@ public class CategoriesController(ApplicationDbContext context) : ControllerBase
 
             if (existingCategory)
             {
-                return Conflict(new { Message = DuplicateCategoryNameMessage });
+                return Conflict(new { message = DuplicateCategoryNameMessage });
             }
         }
 
@@ -212,7 +212,7 @@ public class CategoriesController(ApplicationDbContext context) : ControllerBase
 
         if (category == null || category.IsDeleted)
         {
-            return NotFound(new { Message = CategoryNotFoundMessage });
+            return NotFound(new { message = CategoryNotFoundMessage });
         }
 
         var hasQuizzes = await context.Quizzes
@@ -220,7 +220,7 @@ public class CategoriesController(ApplicationDbContext context) : ControllerBase
 
         if (hasQuizzes)
         {
-            return BadRequest(new { Message = CategoryHasQuizzesMessage });
+            return BadRequest(new { message = CategoryHasQuizzesMessage });
         }
 
         category.IsDeleted = true;

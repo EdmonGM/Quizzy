@@ -24,7 +24,7 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { message = "User not authenticated" });
         }
 
         var attempt = await context.QuizAttempts
@@ -34,10 +34,9 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
 
         if (attempt == null)
         {
-            return NotFound(new { Message = "Attempt not found" });
+            return NotFound(new { message = "Attempt not found" });
         }
 
-        // Verify teacher owns the quiz
         if (attempt.Quiz.TeacherId != userId)
         {
             return Forbid();
@@ -73,7 +72,7 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { message = "User not authenticated" });
         }
 
         var answer = await context.StudentAnswers
@@ -85,10 +84,9 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
 
         if (answer == null)
         {
-            return NotFound(new { Message = "Answer not found" });
+            return NotFound(new { message = "Answer not found" });
         }
 
-        // Verify teacher owns the quiz
         if (answer.Attempt.Quiz.TeacherId != userId)
         {
             return Forbid();
@@ -108,7 +106,7 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { message = "User not authenticated" });
         }
 
         var question = await context.Questions
@@ -117,10 +115,9 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
 
         if (question == null)
         {
-            return NotFound(new { Message = "Question not found" });
+            return NotFound(new { message = "Question not found" });
         }
 
-        // Verify teacher owns the quiz
         if (question.Quiz.TeacherId != userId)
         {
             return Forbid();
@@ -173,7 +170,7 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { message = "User not authenticated" });
         }
 
         var answer = await context.StudentAnswers
@@ -183,19 +180,17 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
 
         if (answer == null)
         {
-            return NotFound(new { Message = "Answer not found" });
+            return NotFound(new { message = "Answer not found" });
         }
 
-        // Verify teacher owns the quiz
         if (answer.Attempt.Quiz.TeacherId != userId)
         {
             return Forbid();
         }
 
-        // Only allow deletion if attempt is not completed
         if (answer.Attempt.Status == QuizAttemptStatus.Completed)
         {
-            return BadRequest(new { Message = "Cannot delete answers from completed attempts" });
+            return BadRequest(new { message = "Cannot delete answers from completed attempts" });
         }
 
         context.StudentAnswers.Remove(answer);
@@ -215,7 +210,7 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = "User not authenticated" });
+            return Unauthorized(new { message = "User not authenticated" });
         }
 
         var answer = await context.StudentAnswers
@@ -226,26 +221,23 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
 
         if (answer == null)
         {
-            return NotFound(new { Message = "Answer not found" });
+            return NotFound(new { message = "Answer not found" });
         }
 
-        // Verify teacher owns the quiz
         if (answer.Attempt.Quiz.TeacherId != userId)
         {
             return Forbid();
         }
 
-        // Only allow correction if attempt is completed
         if (answer.Attempt.Status != QuizAttemptStatus.Completed)
         {
-            return BadRequest(new { Message = "Can only correct answers from completed attempts" });
+            return BadRequest(new { message = "Can only correct answers from completed attempts" });
         }
 
         var originalIsCorrect = answer.IsCorrect;
         answer.IsCorrect = isCorrect;
         answer.UpdatedAt = DateTime.UtcNow;
 
-        // Recalculate attempt score if correctness changed
         if (originalIsCorrect != isCorrect)
         {
             var attempt = answer.Attempt;

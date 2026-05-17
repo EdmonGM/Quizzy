@@ -49,7 +49,7 @@ public class QuestionsController(
 
         if (!quizExists)
         {
-            return NotFound(new { Message = QuizNotFoundMessage });
+            return NotFound(new { message = QuizNotFoundMessage });
         }
 
         var questions = await context.Questions
@@ -82,7 +82,7 @@ public class QuestionsController(
 
         if (question == null)
         {
-            return NotFound(new { Message = QuestionNotFoundMessage });
+            return NotFound(new { message = QuestionNotFoundMessage });
         }
 
         return Ok(question.ToQuestionResponseDto());
@@ -110,19 +110,19 @@ public class QuestionsController(
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(ModelState);
+            return ValidationProblem(ModelState);
         }
 
         if (!dto.Choices.Any(c => c.IsCorrect))
         {
-            return BadRequest(new { Message = AtLeastOneCorrectChoiceMessage });
+            return BadRequest(new { message = AtLeastOneCorrectChoiceMessage });
         }
 
         var userId = userManager.GetUserId(User);
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = UserNotAuthenticatedMessage });
+            return Unauthorized(new { message = UserNotAuthenticatedMessage });
         }
 
         var quiz = await context.Quizzes
@@ -130,7 +130,7 @@ public class QuestionsController(
 
         if (quiz == null)
         {
-            return NotFound(new { Message = QuizNotFoundMessage });
+            return NotFound(new { message = QuizNotFoundMessage });
         }
 
         if (quiz.TeacherId != userId)
@@ -179,19 +179,19 @@ public class QuestionsController(
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(ModelState);
+            return ValidationProblem(ModelState);
         }
 
         if (!dto.Choices.Any(c => c.IsCorrect))
         {
-            return BadRequest(new { Message = AtLeastOneCorrectChoiceMessage });
+            return BadRequest(new { message = AtLeastOneCorrectChoiceMessage });
         }
 
         var userId = userManager.GetUserId(User);
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = UserNotAuthenticatedMessage });
+            return Unauthorized(new { message = UserNotAuthenticatedMessage });
         }
 
         var question = await context.Questions
@@ -200,7 +200,7 @@ public class QuestionsController(
 
         if (question == null)
         {
-            return NotFound(new { Message = QuestionNotFoundMessage });
+            return NotFound(new { message = QuestionNotFoundMessage });
         }
 
         var quiz = await context.Quizzes
@@ -208,7 +208,7 @@ public class QuestionsController(
 
         if (quiz == null)
         {
-            return NotFound(new { Message = QuizNotFoundMessage });
+            return NotFound(new { message = QuizNotFoundMessage });
         }
 
         if (quiz.TeacherId != userId)
@@ -269,7 +269,7 @@ public class QuestionsController(
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = UserNotAuthenticatedMessage });
+            return Unauthorized(new { message = UserNotAuthenticatedMessage });
         }
 
         var question = await context.Questions
@@ -278,7 +278,7 @@ public class QuestionsController(
 
         if (question == null)
         {
-            return NotFound(new { Message = QuestionNotFoundMessage });
+            return NotFound(new { message = QuestionNotFoundMessage });
         }
 
         var quiz = await context.Quizzes
@@ -286,7 +286,7 @@ public class QuestionsController(
 
         if (quiz == null)
         {
-            return NotFound(new { Message = QuizNotFoundMessage });
+            return NotFound(new { message = QuizNotFoundMessage });
         }
 
         if (quiz.TeacherId != userId)
@@ -299,7 +299,7 @@ public class QuestionsController(
 
         if (hasAnswers)
         {
-            return BadRequest(new { Message = CannotDeleteQuestionWithAnswersMessage });
+            return BadRequest(new { message = CannotDeleteQuestionWithAnswersMessage });
         }
 
         context.Choices.RemoveRange(question.Choices);
@@ -331,14 +331,14 @@ public class QuestionsController(
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(ModelState);
+            return ValidationProblem(ModelState);
         }
 
         var userId = userManager.GetUserId(User);
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { Message = UserNotAuthenticatedMessage });
+            return Unauthorized(new { message = UserNotAuthenticatedMessage });
         }
 
         var questionIds = dto.Select(d => d.QuestionId).ToList();
@@ -351,7 +351,7 @@ public class QuestionsController(
 
         if (missingIds.Any())
         {
-            return NotFound(new { Message = QuestionsNotFoundMessage });
+            return NotFound(new { message = QuestionsNotFoundMessage });
         }
 
         var quizIds = questions.Select(q => q.QuizId).Distinct().ToList();
