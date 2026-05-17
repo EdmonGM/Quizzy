@@ -903,15 +903,35 @@ GET /api/admin/dashboard
 
 ### Standard Error Format
 
+All error responses use a consistent JSON shape:
+
+**Simple error:**
 ```json
 {
-  "statusCode": 400,
-  "message": "Validation failed",
+  "message": "User not found"
+}
+```
+
+**Error with details:**
+```json
+{
+  "message": "Registration failed",
+  "errors": ["Username is already taken", "Password is too weak"]
+}
+```
+
+**Validation errors (from `ValidationProblem`):**
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "One or more validation errors occurred.",
+  "status": 400,
   "errors": {
     "title": ["Title is required"],
     "passingScore": ["Passing score must be between 0 and 100"]
   }
 }
+```
 ```
 
 ### Common Status Codes
@@ -932,26 +952,9 @@ GET /api/admin/dashboard
 
 ## Rate Limiting
 
-| Endpoint Category | Limit |
-|-------------------|-------|
-| Authentication | 10 requests/minute |
-| Quiz Attempts | 60 requests/minute |
-| All other endpoints | 100 requests/minute |
+| Endpoint | Limit |
+|----------|-------|
+| Login (`POST /api/auth/login`) | 5 requests/minute per IP |
+| Register (`POST /api/auth/register`) | 3 requests/minute per IP |
 
-Rate limit headers are included in responses:
-```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1677676800
-```
 
----
-
-## Versioning
-
-API version is specified in the URL path:
-```
-/api/v1/quizzes
-```
-
-Current version: `v1`
