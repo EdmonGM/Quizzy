@@ -18,7 +18,8 @@ Authorization: Bearer <token>
 2. [Quizzes](#quizzes)
 3. [Quiz Attempts](#quiz-attempts)
 4. [User Profiles](#user-profiles)
-5. [Admin](#admin)
+5. [Roles](#roles)
+6. [Admin](#admin)
 
 ---
 
@@ -806,6 +807,169 @@ GET /api/profile/stats
 
 ---
 
+## Roles
+
+All role endpoints require authentication. Role modification endpoints require Admin authorization.
+
+### List All Roles
+
+```http
+GET /api/roles
+```
+
+**Authorization:** Any authenticated user
+
+**Response:** `200 OK`
+```json
+[
+  {
+    "roleId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "roleName": "Admin"
+  },
+  {
+    "roleId": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "roleName": "Teacher"
+  },
+  {
+    "roleId": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+    "roleName": "Student"
+  }
+]
+```
+
+> **Note:** Cached for 5 minutes via `ResponseCache`.
+
+---
+
+### Get Users in a Role (Admin)
+
+```http
+GET /api/roles/{name}/users
+```
+
+**Authorization:** Admin only
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | string | Role name: `Admin`, `Teacher`, or `Student` |
+
+**Response:** `200 OK`
+```json
+[
+  {
+    "userId": "u1u1u1u1-u1u1-u1u1-u1u1-u1u1u1u1u1u1",
+    "username": "johndoe",
+    "email": "john@example.com",
+    "roles": ["Teacher"]
+  }
+]
+```
+
+**Response:** `400 Bad Request`
+```json
+{
+  "message": "Invalid role name. Valid roles are: Admin, Teacher, Student"
+}
+```
+
+**Response:** `404 Not Found`
+```json
+{
+  "message": "Role not found"
+}
+```
+
+---
+
+### Add User to Role (Admin)
+
+```http
+POST /api/roles/{id}/roles/{role}
+```
+
+**Authorization:** Admin only
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | uuid | User ID |
+| `role` | string | Role name: `Admin`, `Teacher`, or `Student` |
+
+**Response:** `200 OK`
+```json
+{
+  "message": "User added to role Teacher"
+}
+```
+
+**Response:** `400 Bad Request`
+```json
+{
+  "message": "Invalid user ID format"
+}
+```
+
+**Response:** `404 Not Found`
+```json
+{
+  "message": "User not found"
+}
+```
+
+**Response:** `409 Conflict`
+```json
+{
+  "message": "User is already in role Teacher"
+}
+```
+
+---
+
+### Remove User from Role (Admin)
+
+```http
+DELETE /api/roles/{id}/roles/{role}
+```
+
+**Authorization:** Admin only
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | uuid | User ID |
+| `role` | string | Role name: `Admin`, `Teacher`, or `Student` |
+
+**Response:** `200 OK`
+```json
+{
+  "message": "User removed from role Teacher"
+}
+```
+
+**Response:** `400 Bad Request`
+```json
+{
+  "message": "Invalid user ID format"
+}
+```
+
+**Response:** `404 Not Found`
+```json
+{
+  "message": "User not found"
+}
+```
+
+**Response:** `404 Not Found`
+```json
+{
+  "message": "User is not in role Teacher"
+}
+```
+
+---
+
 ## Admin
 
 ### List All Users
@@ -839,34 +1003,6 @@ GET /api/admin/users?role={role}&page={page}&pageSize={size}
   "totalPages": 15
 }
 ```
-
----
-
-### Assign Role to User (Admin)
-
-```http
-POST /api/admin/users/{userId}/roles
-Content-Type: application/json
-```
-
-**Request:**
-```json
-{
-  "role": "Teacher"
-}
-```
-
-**Response:** `200 OK`
-
----
-
-### Remove Role from User (Admin)
-
-```http
-DELETE /api/admin/users/{userId}/roles/{role}
-```
-
-**Response:** `204 No Content`
 
 ---
 
