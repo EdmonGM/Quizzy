@@ -21,10 +21,10 @@ public static class AuthMapper
         {
             return new UserResponseDto
             {
-                UserId = user.Id,
-                Username = user.UserName!,
-                Email = user.Email!,
-                Roles = roles
+            UserId = user.Id,
+            Username = user.UserName ?? string.Empty,
+            Email = user.Email ?? string.Empty,
+            Roles = roles
             };
         }
 
@@ -32,9 +32,9 @@ public static class AuthMapper
         {
             return new UserResponseDto
             {
-                UserId = user.Id,
-                Username = user.UserName!,
-                Email = user.Email!
+            UserId = user.Id,
+            Username = user.UserName ?? string.Empty,
+            Email = user.Email ?? string.Empty
             };
         }
     }
