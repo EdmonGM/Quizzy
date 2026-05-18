@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Quizzy.Api.Constants;
 using Quizzy.Api.Data;
 using Quizzy.Api.Dtos;
 using Quizzy.Api.Mappers;
@@ -18,7 +19,6 @@ namespace Quizzy.Api.Controllers;
 [Authorize]
 public class QuizzesController(ApplicationDbContext context) : ControllerBase
 {
-    private const string RoleTeacher = "Teacher";
     private const string QuizNotFoundMessage = "Quiz not found";
     private const string UserNotAuthenticatedMessage = "User not authenticated";
     private const string InvalidCategoryMessage = "Invalid category";
@@ -165,7 +165,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     /// <response code="401">If the request is not authenticated.</response>
     /// <response code="403">If the current user does not have Teacher role.</response>
     [HttpPost]
-    [Authorize(Roles = RoleTeacher)]
+    [Authorize(Roles = AppRoles.Teacher)]
     [ProducesResponseType(typeof(QuizResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -218,7 +218,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     /// <response code="403">If the current user does not have Teacher role or does not own the quiz.</response>
     /// <response code="404">If the quiz is not found.</response>
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = RoleTeacher)]
+    [Authorize(Roles = AppRoles.Teacher)]
     [ProducesResponseType(typeof(QuizResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -282,7 +282,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     /// <response code="403">If the current user does not have Teacher role or does not own the quiz.</response>
     /// <response code="404">If the quiz is not found.</response>
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = RoleTeacher)]
+    [Authorize(Roles = AppRoles.Teacher)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -329,7 +329,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     /// <response code="403">If the current user does not have Teacher role or does not own the quiz.</response>
     /// <response code="404">If the quiz is not found.</response>
     [HttpPatch("{id:guid}/publish")]
-    [Authorize(Roles = RoleTeacher)]
+    [Authorize(Roles = AppRoles.Teacher)]
     [ProducesResponseType(typeof(QuizResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

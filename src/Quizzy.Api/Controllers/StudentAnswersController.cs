@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Quizzy.Api.Constants;
 using Quizzy.Api.Data;
 using Quizzy.Api.Dtos;
 using Quizzy.Api.Mappers;
@@ -17,7 +18,7 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
     /// Get all answers for a specific attempt (Teachers only)
     /// </summary>
     [HttpGet("attempt/{attemptId:guid}")]
-    [Authorize(Roles = "Teacher")]
+    [Authorize(Roles = AppRoles.Teacher)]
     public async Task<IActionResult> GetAnswersByAttempt(Guid attemptId)
     {
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -65,7 +66,7 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
     /// Get a specific answer by ID (Teachers only)
     /// </summary>
     [HttpGet("{id:guid}")]
-    [Authorize(Roles = "Teacher")]
+    [Authorize(Roles = AppRoles.Teacher)]
     public async Task<IActionResult> GetAnswerById(Guid id)
     {
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -99,7 +100,7 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
     /// Get statistics for a specific question across all attempts (Teachers only)
     /// </summary>
     [HttpGet("question/{questionId:guid}/stats")]
-    [Authorize(Roles = "Teacher")]
+    [Authorize(Roles = AppRoles.Teacher)]
     public async Task<IActionResult> GetQuestionAnswerStats(Guid questionId)
     {
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -163,7 +164,7 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
     /// Delete an answer (Teachers only - for correction purposes)
     /// </summary>
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "Teacher")]
+    [Authorize(Roles = AppRoles.Teacher)]
     public async Task<IActionResult> DeleteAnswer(Guid id)
     {
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -203,7 +204,7 @@ public class StudentAnswersController(ApplicationDbContext context) : Controller
     /// Update an answer's correctness (Teachers only - for manual correction)
     /// </summary>
     [HttpPatch("{id:guid}/correct")]
-    [Authorize(Roles = "Teacher")]
+    [Authorize(Roles = AppRoles.Teacher)]
     public async Task<IActionResult> CorrectAnswer(Guid id, [FromBody] bool isCorrect)
     {
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;

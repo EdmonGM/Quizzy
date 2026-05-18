@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Quizzy.Api.Constants;
 using Quizzy.Api.Data;
 using Quizzy.Api.Dtos;
 using Quizzy.Api.Mappers;
@@ -430,7 +431,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
     /// Get overview of all attempts for a quiz (Teachers)
     /// </summary>
     [HttpGet("overview/quiz/{quizId:guid}")]
-    [Authorize(Roles = "Teacher")]
+    [Authorize(Roles = AppRoles.Teacher)]
     public async Task<IActionResult> GetQuizAttemptsOverview(Guid quizId, [FromQuery] string? status)
     {
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -472,7 +473,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
     /// Get detailed attempt information (Teachers)
     /// </summary>
     [HttpGet("{id:guid}/details")]
-    [Authorize(Roles = "Teacher")]
+    [Authorize(Roles = AppRoles.Teacher)]
     public async Task<IActionResult> GetAttemptDetails(Guid id)
     {
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;

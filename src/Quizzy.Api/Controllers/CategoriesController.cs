@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Quizzy.Api.Constants;
 using Quizzy.Api.Data;
 using Quizzy.Api.Dtos;
 using Quizzy.Api.Mappers;
@@ -19,7 +20,6 @@ namespace Quizzy.Api.Controllers;
 [Authorize]
 public class CategoriesController(ApplicationDbContext context) : ControllerBase
 {
-    private const string RoleAdmin = "Admin";
     private const string CategoryNotFoundMessage = "Category not found";
     private const string DuplicateCategoryNameMessage = "A category with this name already exists";
     private const string CategoryHasQuizzesMessage = "Cannot delete category with associated quizzes";
@@ -94,7 +94,7 @@ public class CategoriesController(ApplicationDbContext context) : ControllerBase
     /// <response code="403">If the current user does not have Admin role.</response>
     /// <response code="409">If a category with the same name already exists.</response>
     [HttpPost]
-    [Authorize(Roles = RoleAdmin)]
+    [Authorize(Roles = AppRoles.Admin)]
     [ProducesResponseType(typeof(CategoryResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -143,7 +143,7 @@ public class CategoriesController(ApplicationDbContext context) : ControllerBase
     /// <response code="404">If the category is not found.</response>
     /// <response code="409">If a category with the same name already exists.</response>
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = RoleAdmin)]
+    [Authorize(Roles = AppRoles.Admin)]
     [ProducesResponseType(typeof(CategoryResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -199,7 +199,7 @@ public class CategoriesController(ApplicationDbContext context) : ControllerBase
     /// <response code="403">If the current user does not have Admin role.</response>
     /// <response code="404">If the category is not found.</response>
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = RoleAdmin)]
+    [Authorize(Roles = AppRoles.Admin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

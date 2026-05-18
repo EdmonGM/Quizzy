@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Quizzy.Api.Constants;
 using Quizzy.Api.Mappers;
 using Quizzy.Api.Models;
 
@@ -22,10 +23,7 @@ public class RolesController(
     ILogger<RolesController> logger)
     : ControllerBase
 {
-    private const string RoleAdmin = "Admin";
-    private const string RoleTeacher = "Teacher";
-    private const string RoleStudent = "Student";
-    private static readonly string[] ValidRoles = [RoleAdmin, RoleTeacher, RoleStudent];
+    private static readonly string[] ValidRoles = [AppRoles.Admin, AppRoles.Teacher, AppRoles.Student];
 
     /// <summary>
     /// Retrieves all available roles in the system.
@@ -55,7 +53,7 @@ public class RolesController(
     /// <response code="403">If the current user does not have Admin role.</response>
     /// <response code="404">If the role is not found.</response>
     [HttpGet("{name}/users")]
-    [Authorize(Roles = RoleAdmin)]
+    [Authorize(Roles = AppRoles.Admin)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -94,7 +92,7 @@ public class RolesController(
     /// <response code="404">If the user is not found.</response>
     /// <response code="409">If the user is already in the specified role.</response>
     [HttpPost("{id}/roles/{role}")]
-    [Authorize(Roles = RoleAdmin)]
+    [Authorize(Roles = AppRoles.Admin)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -150,7 +148,7 @@ public class RolesController(
     /// <response code="403">If the current user does not have Admin role.</response>
     /// <response code="404">If the user is not found or is not in the specified role.</response>
     [HttpDelete("{id}/roles/{role}")]
-    [Authorize(Roles = RoleAdmin)]
+    [Authorize(Roles = AppRoles.Admin)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

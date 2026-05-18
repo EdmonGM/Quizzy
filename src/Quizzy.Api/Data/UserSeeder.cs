@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Quizzy.Api.Constants;
 using Quizzy.Api.Models;
 
 namespace Quizzy.Api.Data;
@@ -33,9 +34,9 @@ public static class UserSeeder
         var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("UserSeeder");
 
         await SeedSystemDeletedUserAsync(userManager, logger);
-        await SeedRoleAccountAsync(userManager, dbContext, logger, AdminUserId, AdminUsername, AdminEmail, AdminPassword, "Admin");
-        await SeedRoleAccountAsync(userManager, dbContext, logger, TeacherUserId, TeacherUsername, TeacherEmail, TeacherPassword, "Teacher");
-        await SeedRoleAccountAsync(userManager, dbContext, logger, StudentUserId, StudentUsername, StudentEmail, StudentPassword, "Student");
+        await SeedRoleAccountAsync(userManager, dbContext, logger, AdminUserId, AdminUsername, AdminEmail, AdminPassword, AppRoles.Admin);
+        await SeedRoleAccountAsync(userManager, dbContext, logger, TeacherUserId, TeacherUsername, TeacherEmail, TeacherPassword, AppRoles.Teacher);
+        await SeedRoleAccountAsync(userManager, dbContext, logger, StudentUserId, StudentUsername, StudentEmail, StudentPassword, AppRoles.Student);
     }
 
     private static async Task SeedSystemDeletedUserAsync(

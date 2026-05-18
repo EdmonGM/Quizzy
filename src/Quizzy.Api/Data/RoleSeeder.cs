@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Quizzy.Api.Constants;
 using Quizzy.Api.Models;
 
 namespace Quizzy.Api.Data;
 
 public static class RoleSeeder
 {
-    private static readonly string[] FixedRoles = ["Admin", "Teacher", "Student"];
+    private static readonly string[] FixedRoles = [AppRoles.Admin, AppRoles.Teacher, AppRoles.Student];
 
     public static async Task SeedAsync(IServiceProvider serviceProvider)
     {
