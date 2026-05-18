@@ -35,6 +35,7 @@ builder.Services.AddRateLimiter(options =>
 });
 
 builder.Services.AddControllers();
+builder.Services.AddResponseCaching();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -119,6 +120,7 @@ app.UseExceptionHandler(_ => { });
 app.UseHttpsRedirection();
 
 app.UseRateLimiter();
+app.UseResponseCaching();
 
 app.UseAuthentication();
 app.UseAuthorization();
