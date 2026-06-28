@@ -5,164 +5,178 @@ namespace Quizzy.Api.Mappers;
 
 public static class QuizAttemptMapper
 {
-    public static QuizAttemptSummaryDto ToQuizAttemptSummaryDto(this QuizAttempt attempt)
-    {
-        var percentage = attempt.TotalPossibleScore > 0
-            ? (double)attempt.Score / attempt.TotalPossibleScore * 100
-            : 0;
+    private static double CalculatePercentage(int score, int totalPossibleScore) =>
+        totalPossibleScore > 0 ? Math.Round((double)score / totalPossibleScore * 100, 2) : 0;
 
-        return new QuizAttemptSummaryDto
-        {
-            Id = attempt.Id,
-            AttemptNumber = attempt.AttemptNumber,
-            Status = attempt.Status,
-            Score = attempt.Score,
-            TotalPossibleScore = attempt.TotalPossibleScore,
-            Percentage = Math.Round(percentage, 2),
-            Passed = percentage >= attempt.Quiz.PassingScore,
-            StartedAt = attempt.StartedAt,
-            CompletedAt = attempt.CompletedAt,
-            TimeSpentSeconds = attempt.TimeSpentSeconds
-        };
+    private static double CalculateAveragePercentage(List<QuizAttempt> attempts)
+    {
+        if (attempts.Count <= 0) return 0;
+        
+        return attempts.Average(
+            avg => avg.TotalPossibleScore > 0 
+            ? (double)avg.Score / avg.TotalPossibleScore * 100 
+            : 0);
     }
 
-    public static QuizAttemptDto ToQuizAttemptDto(this QuizAttempt attempt)
+    private static double CalculatePassRate(List<QuizAttempt> attempts, int passingScore)
     {
-        var percentage = attempt.TotalPossibleScore > 0
-            ? (double)attempt.Score / attempt.TotalPossibleScore * 100
-            : 0;
+        if(attempts.Count <= 0) return 0;
 
-        return new QuizAttemptDto
+        return (double)attempts.Count(a =>
         {
-            Id = attempt.Id,
-            QuizId = attempt.QuizId,
-            QuizTitle = attempt.Quiz.Title,
-            StudentId = attempt.StudentId,
-            StudentName = attempt.Student.UserName!,
-            AttemptNumber = attempt.AttemptNumber,
-            Status = attempt.Status,
-            StartedAt = attempt.StartedAt,
-            CompletedAt = attempt.CompletedAt,
-            TimeSpentSeconds = attempt.TimeSpentSeconds,
-            Score = attempt.Score,
-            TotalPossibleScore = attempt.TotalPossibleScore,
-            Percentage = Math.Round(percentage, 2),
-            Passed = percentage >= attempt.Quiz.PassingScore,
-            CreatedAt = attempt.CreatedAt,
-            UpdatedAt = attempt.UpdatedAt
-        };
+            var percentage = CalculatePercentage(a.Score, passingScore);
+            return percentage >= passingScore;
+        }) / attempts.Count * 100;
     }
-
-    public static QuizAttemptWithAnswersDto ToQuizAttemptWithAnswersDto(
-        this QuizAttempt attempt,
-        List<Question> questions,
-        Dictionary<Guid, Guid> questionToAnswerMap,
-        int? timeRemainingSeconds = null)
+    
+    extension(QuizAttempt attempt)
     {
-        var quizQuestions = questions.OrderBy(q => q.OrderIndex).Select(q =>
+        public QuizAttemptSummaryDto ToQuizAttemptSummaryDto()
         {
-            var hasAnswer = questionToAnswerMap.TryGetValue(q.Id, out var answerId);
-            return new QuestionWithUserAnswerDto
+            var percentage = CalculatePercentage(attempt.Score, attempt.TotalPossibleScore);
+
+            return new QuizAttemptSummaryDto
             {
-                Id = q.Id,
-                Content = q.Content,
-                OrderIndex = q.OrderIndex,
-                Points = q.Points,
-                AnswerId = hasAnswer ? answerId : null,
-                Choices = q.Choices.OrderBy(c => c.OrderIndex).Select(c => new ChoiceSummaryDto
+                Id = attempt.Id,
+                AttemptNumber = attempt.AttemptNumber,
+                Status = attempt.Status,
+                Score = attempt.Score,
+                TotalPossibleScore = attempt.TotalPossibleScore,
+                Percentage = Math.Round(percentage, 2),
+                Passed = percentage >= attempt.Quiz.PassingScore,
+                StartedAt = attempt.StartedAt,
+                CompletedAt = attempt.CompletedAt,
+                TimeSpentSeconds = attempt.TimeSpentSeconds
+            };
+        }
+
+        public QuizAttemptDto ToQuizAttemptDto()
+        {
+            var percentage = CalculatePercentage(attempt.Score, attempt.TotalPossibleScore);
+
+            return new QuizAttemptDto
+            {
+                Id = attempt.Id,
+                QuizId = attempt.QuizId,
+                QuizTitle = attempt.Quiz.Title,
+                StudentId = attempt.StudentId,
+                StudentName = attempt.Student.UserName!,
+                AttemptNumber = attempt.AttemptNumber,
+                Status = attempt.Status,
+                StartedAt = attempt.StartedAt,
+                CompletedAt = attempt.CompletedAt,
+                TimeSpentSeconds = attempt.TimeSpentSeconds,
+                Score = attempt.Score,
+                TotalPossibleScore = attempt.TotalPossibleScore,
+                Percentage = Math.Round(percentage, 2),
+                Passed = percentage >= attempt.Quiz.PassingScore,
+                CreatedAt = attempt.CreatedAt,
+                UpdatedAt = attempt.UpdatedAt
+            };
+        }
+
+        public QuizAttemptWithAnswersDto ToQuizAttemptWithAnswersDto(List<Question> questions,
+            Dictionary<Guid, Guid> questionToAnswerMap,
+            int? timeRemainingSeconds = null)
+        {
+            var quizQuestions = questions.OrderBy(q => q.OrderIndex).Select(q =>
+            {
+                var hasAnswer = questionToAnswerMap.TryGetValue(q.Id, out var answerId);
+                return new QuestionWithUserAnswerDto
                 {
-                    Id = c.Id,
-                    Content = c.Content,
-                    OrderIndex = c.OrderIndex
-                }).ToList()
-            };
-        }).ToList();
+                    Id = q.Id,
+                    Content = q.Content,
+                    OrderIndex = q.OrderIndex,
+                    Points = q.Points,
+                    AnswerId = hasAnswer ? answerId : null,
+                    Choices = q.Choices.OrderBy(c => c.OrderIndex).Select(c => new ChoiceSummaryDto
+                    {
+                        Id = c.Id,
+                        Content = c.Content,
+                        OrderIndex = c.OrderIndex
+                    }).ToList()
+                };
+            }).ToList();
 
-        return new QuizAttemptWithAnswersDto
-        {
-            Id = attempt.Id,
-            QuizId = attempt.QuizId,
-            QuizTitle = attempt.Quiz.Title,
-            AttemptNumber = attempt.AttemptNumber,
-            Status = attempt.Status,
-            TimeLimitMinutes = attempt.Quiz.TimeLimitMinutes,
-            TimeRemainingSeconds = timeRemainingSeconds,
-            StartedAt = attempt.StartedAt,
-            TimeSpentSeconds = attempt.TimeSpentSeconds,
-            Score = attempt.Score,
-            TotalPossibleScore = attempt.TotalPossibleScore,
-            Percentage = attempt.TotalPossibleScore > 0
-                ? Math.Round((double)attempt.Score / attempt.TotalPossibleScore * 100, 2)
-                : 0,
-            Passed = attempt.TotalPossibleScore > 0 && (double)attempt.Score / attempt.TotalPossibleScore * 100 >= attempt.Quiz.PassingScore,
-            Questions = quizQuestions
-        };
-    }
-
-    public static SubmitAttemptResponseDto ToSubmitAttemptResponseDto(
-        this QuizAttempt attempt,
-        List<StudentAnswer> answers)
-    {
-        var percentage = attempt.TotalPossibleScore > 0
-            ? (double)attempt.Score / attempt.TotalPossibleScore * 100
-            : 0;
-
-        var answerResults = answers.Select(a =>
-        {
-            var correctChoice = a.Question.Choices.FirstOrDefault(c => c.IsCorrect);
-            return new StudentAnswerResultDto
+            return new QuizAttemptWithAnswersDto
             {
-                QuestionId = a.QuestionId,
-                QuestionContent = a.QuestionSnapshot,
-                SelectedChoice = a.ChoiceSnapshot,
-                CorrectChoice = correctChoice?.Content,
-                IsCorrect = a.IsCorrect,
-                Points = a.IsCorrect ? a.Question.Points : 0,
-                MaxPoints = a.Question.Points
+                Id = attempt.Id,
+                QuizId = attempt.QuizId,
+                QuizTitle = attempt.Quiz.Title,
+                AttemptNumber = attempt.AttemptNumber,
+                Status = attempt.Status,
+                TimeLimitMinutes = attempt.Quiz.TimeLimitMinutes,
+                TimeRemainingSeconds = timeRemainingSeconds,
+                StartedAt = attempt.StartedAt,
+                TimeSpentSeconds = attempt.TimeSpentSeconds,
+                Score = attempt.Score,
+                TotalPossibleScore = attempt.TotalPossibleScore,
+                Percentage = attempt.TotalPossibleScore > 0
+                    ? Math.Round((double)attempt.Score / attempt.TotalPossibleScore * 100, 2)
+                    : 0,
+                Passed = attempt.TotalPossibleScore > 0 && (double)attempt.Score / attempt.TotalPossibleScore * 100 >= attempt.Quiz.PassingScore,
+                Questions = quizQuestions
             };
-        }).ToList();
+        }
 
-        return new SubmitAttemptResponseDto
+        public SubmitAttemptResponseDto ToSubmitAttemptResponseDto(List<StudentAnswer> answers)
         {
-            AttemptId = attempt.Id,
-            Status = attempt.Status,
-            Score = attempt.Score,
-            TotalPossibleScore = attempt.TotalPossibleScore,
-            Percentage = Math.Round(percentage, 2),
-            Passed = percentage >= attempt.Quiz.PassingScore,
-            CompletedAt = attempt.CompletedAt!.Value,
-            TimeSpentSeconds = attempt.TimeSpentSeconds,
-            Answers = answerResults
-        };
-    }
+            var percentage = CalculatePercentage(attempt.Score, attempt.TotalPossibleScore);
 
-    public static QuizAttemptResultsDto ToQuizAttemptResultsDto(
-        this QuizAttempt attempt,
-        List<StudentAnswer> answers)
-    {
-        var baseResponse = attempt.ToSubmitAttemptResponseDto(answers);
-        var percentage = attempt.TotalPossibleScore > 0
-            ? (double)attempt.Score / attempt.TotalPossibleScore * 100
-            : 0;
+            var answerResults = answers.Select(a =>
+            {
+                var correctChoice = a.Question.Choices.FirstOrDefault(c => c.IsCorrect);
+                return new StudentAnswerResultDto
+                {
+                    QuestionId = a.QuestionId,
+                    QuestionContent = a.QuestionSnapshot,
+                    SelectedChoice = a.ChoiceSnapshot,
+                    CorrectChoice = correctChoice?.Content,
+                    IsCorrect = a.IsCorrect,
+                    Points = a.IsCorrect ? a.Question.Points : 0,
+                    MaxPoints = a.Question.Points
+                };
+            }).ToList();
 
-        return new QuizAttemptResultsDto
+            return new SubmitAttemptResponseDto
+            {
+                AttemptId = attempt.Id,
+                Status = attempt.Status,
+                Score = attempt.Score,
+                TotalPossibleScore = attempt.TotalPossibleScore,
+                Percentage = Math.Round(percentage, 2),
+                Passed = percentage >= attempt.Quiz.PassingScore,
+                CompletedAt = attempt.CompletedAt!.Value,
+                TimeSpentSeconds = attempt.TimeSpentSeconds,
+                Answers = answerResults
+            };
+        }
+
+        public QuizAttemptResultsDto ToQuizAttemptResultsDto(List<StudentAnswer> answers)
         {
-            AttemptId = baseResponse.AttemptId,
-            QuizId = attempt.QuizId,
-            QuizTitle = attempt.Quiz.Title,
-            AttemptNumber = attempt.AttemptNumber,
-            Status = baseResponse.Status,
-            Score = baseResponse.Score,
-            TotalPossibleScore = baseResponse.TotalPossibleScore,
-            Percentage = baseResponse.Percentage,
-            Passed = percentage >= attempt.Quiz.PassingScore,
-            PassingScore = attempt.Quiz.PassingScore,
-            CompletedAt = baseResponse.CompletedAt,
-            TimeSpentSeconds = baseResponse.TimeSpentSeconds,
-            TimeLimitMinutes = attempt.Quiz.TimeLimitMinutes,
-            StartedAt = attempt.StartedAt,
-            Answers = baseResponse.Answers
-        };
+            var baseResponse = attempt.ToSubmitAttemptResponseDto(answers);
+            var percentage = CalculatePercentage(attempt.Score, attempt.TotalPossibleScore);
+
+
+            return new QuizAttemptResultsDto
+            {
+                AttemptId = baseResponse.AttemptId,
+                QuizId = attempt.QuizId,
+                QuizTitle = attempt.Quiz.Title,
+                AttemptNumber = attempt.AttemptNumber,
+                Status = baseResponse.Status,
+                Score = baseResponse.Score,
+                TotalPossibleScore = baseResponse.TotalPossibleScore,
+                Percentage = baseResponse.Percentage,
+                Passed = percentage >= attempt.Quiz.PassingScore,
+                PassingScore = attempt.Quiz.PassingScore,
+                CompletedAt = baseResponse.CompletedAt,
+                TimeSpentSeconds = baseResponse.TimeSpentSeconds,
+                TimeLimitMinutes = attempt.Quiz.TimeLimitMinutes,
+                StartedAt = attempt.StartedAt,
+                Answers = baseResponse.Answers
+            };
+        }
     }
 
     public static QuizAttemptsOverviewDto ToQuizAttemptsOverviewDto(
@@ -175,21 +189,9 @@ public static class QuizAttemptMapper
         var inProgress = attempts.Where(a => a.Status == QuizAttemptStatus.InProgress).ToList();
         var abandoned = attempts.Where(a => a.Status == QuizAttemptStatus.Abandoned).ToList();
 
-        var averageScore = completed.Count != 0
-            ? completed.Average(avg => avg.TotalPossibleScore > 0
-                ? (double)avg.Score / avg.TotalPossibleScore * 100
-                : 0)
-            : 0;
+        var averageScore = CalculateAveragePercentage(completed);
 
-        var passRate = completed.Count != 0
-            ? (double)completed.Count(a =>
-            {
-                var percentage = a.TotalPossibleScore > 0
-                    ? (double)a.Score / a.TotalPossibleScore * 100
-                    : 0;
-                return percentage >= passingScore;
-            }) / completed.Count * 100
-            : 0;
+        var passRate = CalculatePassRate(attempts, passingScore);
 
         var averageTimeSpent = completed.Count != 0
             ? completed.Average(a => a.TimeSpentSeconds)
