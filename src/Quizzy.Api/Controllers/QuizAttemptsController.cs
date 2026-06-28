@@ -188,7 +188,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
             UpdatedAt = DateTime.UtcNow
         };
 
-        await context.QuizAttempts.AddAsync(attempt);
+        context.QuizAttempts.Add(attempt);
         await context.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetAttemptById), new { id = attempt.Id }, attempt.ToCreateAttemptResponseDto());
@@ -293,7 +293,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
             UpdatedAt = DateTime.UtcNow
         };
 
-        await context.StudentAnswers.AddAsync(answer);
+        context.StudentAnswers.Add(answer);
         await context.SaveChangesAsync();
 
         return Ok(new SubmitAnswerResponseDto
