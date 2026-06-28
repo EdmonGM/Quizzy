@@ -49,7 +49,7 @@ public class QuestionsController(
 
         if (!quizExists)
         {
-            return NotFound(new { message = QuizNotFoundMessage });
+            return NotFound(QuizNotFoundMessage);
         }
 
         var questions = await context.Questions
@@ -82,7 +82,7 @@ public class QuestionsController(
 
         if (question == null)
         {
-            return NotFound(new { message = QuestionNotFoundMessage });
+            return NotFound(QuestionNotFoundMessage);
         }
 
         return Ok(question.ToQuestionResponseDto());
@@ -115,14 +115,14 @@ public class QuestionsController(
 
         if (!dto.Choices.Any(c => c.IsCorrect))
         {
-            return BadRequest(new { message = AtLeastOneCorrectChoiceMessage });
+            return BadRequest(AtLeastOneCorrectChoiceMessage);
         }
 
         var userId = userManager.GetUserId(User);
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { message = UserNotAuthenticatedMessage });
+            return Unauthorized(UserNotAuthenticatedMessage);
         }
 
         var quiz = await context.Quizzes
@@ -130,7 +130,7 @@ public class QuestionsController(
 
         if (quiz == null)
         {
-            return NotFound(new { message = QuizNotFoundMessage });
+            return NotFound(QuizNotFoundMessage);
         }
 
         if (quiz.TeacherId != userId)
@@ -184,14 +184,14 @@ public class QuestionsController(
 
         if (!dto.Choices.Any(c => c.IsCorrect))
         {
-            return BadRequest(new { message = AtLeastOneCorrectChoiceMessage });
+            return BadRequest(AtLeastOneCorrectChoiceMessage);
         }
 
         var userId = userManager.GetUserId(User);
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { message = UserNotAuthenticatedMessage });
+            return Unauthorized(UserNotAuthenticatedMessage);
         }
 
         var question = await context.Questions
@@ -200,7 +200,7 @@ public class QuestionsController(
 
         if (question == null)
         {
-            return NotFound(new { message = QuestionNotFoundMessage });
+            return NotFound(QuestionNotFoundMessage);
         }
 
         var quiz = await context.Quizzes
@@ -208,7 +208,7 @@ public class QuestionsController(
 
         if (quiz == null)
         {
-            return NotFound(new { message = QuizNotFoundMessage });
+            return NotFound(QuizNotFoundMessage);
         }
 
         if (quiz.TeacherId != userId)
@@ -269,7 +269,7 @@ public class QuestionsController(
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { message = UserNotAuthenticatedMessage });
+            return Unauthorized(UserNotAuthenticatedMessage);
         }
 
         var question = await context.Questions
@@ -278,7 +278,7 @@ public class QuestionsController(
 
         if (question == null)
         {
-            return NotFound(new { message = QuestionNotFoundMessage });
+            return NotFound(QuestionNotFoundMessage);
         }
 
         var quiz = await context.Quizzes
@@ -286,7 +286,7 @@ public class QuestionsController(
 
         if (quiz == null)
         {
-            return NotFound(new { message = QuizNotFoundMessage });
+            return NotFound(QuizNotFoundMessage);
         }
 
         if (quiz.TeacherId != userId)
@@ -299,7 +299,7 @@ public class QuestionsController(
 
         if (hasAnswers)
         {
-            return BadRequest(new { message = CannotDeleteQuestionWithAnswersMessage });
+            return BadRequest(CannotDeleteQuestionWithAnswersMessage);
         }
 
         context.Choices.RemoveRange(question.Choices);
@@ -338,7 +338,7 @@ public class QuestionsController(
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { message = UserNotAuthenticatedMessage });
+            return Unauthorized(UserNotAuthenticatedMessage);
         }
 
         var questionIds = dto.Select(d => d.QuestionId).ToList();
@@ -351,7 +351,7 @@ public class QuestionsController(
 
         if (missingIds.Any())
         {
-            return NotFound(new { message = QuestionsNotFoundMessage });
+            return NotFound(QuestionsNotFoundMessage);
         }
 
         var quizIds = questions.Select(q => q.QuizId).Distinct().ToList();

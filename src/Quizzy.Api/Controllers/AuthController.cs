@@ -44,7 +44,7 @@ public class AuthController(
     {
         if (dto.Role is not AppRoles.Student and not AppRoles.Teacher)
         {
-            return BadRequest(new { message = "Invalid role. Must be 'Student' or 'Teacher'." });
+            return BadRequest("Invalid role. Must be 'Student' or 'Teacher'.");
         }
 
         var user = dto.ToApplicationUser();
@@ -54,7 +54,7 @@ public class AuthController(
 
         logger.LogInformation("User {Username} registered successfully as {Role}", createdUser!.UserName, dto.Role);
 
-        return Created(string.Empty, new { data = profile!.ToUserProfileDto(createdUser.UserName ?? string.Empty, createdUser.Email ?? string.Empty) });
+        return Created(string.Empty, profile!.ToUserProfileDto(createdUser.UserName ?? string.Empty, createdUser.Email ?? string.Empty));
     }
 
     /// <summary>
@@ -73,7 +73,7 @@ public class AuthController(
 
         var userResponseDto = createdUser.ToUserResponseDto();
 
-        return Ok(new { message = "Admin user created successfully", data = userResponseDto });
+        return Ok(userResponseDto);
     }
 
     /// <summary>
@@ -87,14 +87,14 @@ public class AuthController(
 
         if (user == null)
         {
-            return Unauthorized(new { message = "Invalid username or password" });
+            return Unauthorized("Invalid username or password");
         }
 
         var result = await userManager.CheckPasswordAsync(user, dto.Password);
 
         if (!result)
         {
-            return Unauthorized(new { message = "Invalid username or password" });
+            return Unauthorized("Invalid username or password");
         }
 
         var roles = await userManager.GetRolesAsync(user);
@@ -103,16 +103,13 @@ public class AuthController(
 
         logger.LogInformation("User {Username} logged in successfully", user.UserName);
 
-        return Ok(new
+        return Ok(new LoginResponseDto
         {
-            data = new LoginResponseDto
-            {
-                Token = token,
-                RefreshToken = refreshToken,
-                Username = user.UserName ?? string.Empty,
-                Email = user.Email ?? string.Empty,
-                Roles = roles
-            }
+            Token = token,
+            RefreshToken = refreshToken,
+            Username = user.UserName ?? string.Empty,
+            Email = user.Email ?? string.Empty,
+            Roles = roles
         });
     }
 
@@ -130,7 +127,7 @@ public class AuthController(
 
         if (principal == null)
         {
-            return BadRequest(new { message = "Invalid access token" });
+            return BadRequest("Invalid access token");
         }
 
         var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -138,28 +135,28 @@ public class AuthController(
 
         if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(username))
         {
-            return BadRequest(new { message = "Invalid token claims" });
+            return BadRequest("Invalid token claims");
         }
 
         var refreshTokenPrincipal = jwtTokenService.GetPrincipalFromRefreshToken(dto.RefreshToken);
 
         if (refreshTokenPrincipal == null)
         {
-            return BadRequest(new { message = "Invalid or expired refresh token" });
+            return BadRequest("Invalid or expired refresh token");
         }
 
         var refreshTokenUserId = refreshTokenPrincipal.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (userId != refreshTokenUserId)
         {
-            return BadRequest(new { message = "Token mismatch" });
+            return BadRequest("Token mismatch");
         }
 
         var user = await userManager.GetUserAsync(principal);
 
         if (user == null)
         {
-            return Unauthorized(new { message = "User not found" });
+            return Unauthorized("User not found");
         }
 
         var roles = await userManager.GetRolesAsync(user);
@@ -168,13 +165,10 @@ public class AuthController(
 
         logger.LogInformation("User {Username} refreshed token successfully", username);
 
-        return Ok(new
+        return Ok(new RefreshResponseDto
         {
-            data = new RefreshResponseDto
-            {
-                Token = newToken,
-                RefreshToken = newRefreshToken
-            }
+            Token = newToken,
+            RefreshToken = newRefreshToken
         });
     }
 
@@ -188,7 +182,7 @@ public class AuthController(
             var result = await userManager.CreateAsync(user, password);
             if (!result.Succeeded)
             {
-                return (null, null, BadRequest(new { message = "User creation failed", errors = result.Errors.Select(e => e.Description) }));
+                return (null, null, BadRequest("User creation failed"));
             }
 
             await userManager.AddToRoleAsync(user, role);
@@ -213,7 +207,7 @@ public class AuthController(
         {
             await transaction.RollbackAsync();
             logger.LogError(ex, "Error creating user {Username}", user.UserName);
-            return (null, null, StatusCode(500, new { message = "An error occurred during user creation" }));
+            return (null, null, StatusCode(500, "An error occurred during user creation"));
         }
     }
 }

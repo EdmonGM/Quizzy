@@ -27,21 +27,21 @@ public class UserProfileController(
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { message = "User not authenticated" });
+            return Unauthorized("User not authenticated");
         }
 
         var user = await userManager.FindByIdAsync(userId);
 
         if (user == null)
         {
-            return NotFound(new { message = "User not found" });
+            return NotFound("User not found");
         }
 
         var profile = await context.UserProfiles.FindAsync(userId);
 
         if (profile == null)
         {
-            return NotFound(new { message = "Profile not found" });
+            return NotFound("Profile not found");
         }
 
         return Ok(profile.ToUserProfileDto(user.UserName!, user.Email!));
@@ -57,14 +57,14 @@ public class UserProfileController(
 
         if (profile == null)
         {
-            return NotFound(new { message = "Profile not found" });
+            return NotFound("Profile not found");
         }
 
         var user = await userManager.FindByIdAsync(userId);
 
         if (user == null)
         {
-            return NotFound(new { message = "User not found" });
+            return NotFound("User not found");
         }
 
         return Ok(profile.ToUserProfileDto(user.UserName!, user.Email!));
@@ -80,7 +80,7 @@ public class UserProfileController(
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { message = "User not authenticated" });
+            return Unauthorized("User not authenticated");
         }
 
         var profile = await context.UserProfiles.FindAsync(userId);
@@ -91,7 +91,7 @@ public class UserProfileController(
 
             if (user == null)
             {
-                return NotFound(new { message = "User not found" });
+                return NotFound("User not found");
             }
 
             profile = new UserProfile
@@ -142,14 +142,14 @@ public class UserProfileController(
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { message = "User not authenticated" });
+            return Unauthorized("User not authenticated");
         }
 
         var profile = await context.UserProfiles.FindAsync(userId);
 
         if (profile == null)
         {
-            return NotFound(new { message = "Profile not found. Please create a profile first." });
+            return NotFound("Profile not found. Please create a profile first.");
         }
 
         if (!string.IsNullOrEmpty(model.FirstName))
@@ -184,14 +184,14 @@ public class UserProfileController(
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new { message = "User not authenticated" });
+            return Unauthorized("User not authenticated");
         }
 
         var profile = await context.UserProfiles.FindAsync(userId);
 
         if (profile == null)
         {
-            return NotFound(new { message = "Profile not found" });
+            return NotFound("Profile not found");
         }
 
         profile.ProfileImageUrl = model.ProfileImageUrl;

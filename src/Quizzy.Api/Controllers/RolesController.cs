@@ -63,19 +63,16 @@ public class RolesController(
     {
         if (!ValidRoles.Contains(name))
         {
-            return BadRequest(new { message = $"Invalid role name. Valid roles are: {string.Join(", ", ValidRoles)}" });
+            return BadRequest($"Invalid role name. Valid roles are: {string.Join(", ", ValidRoles)}");
+        }
+        
+        var roleExists = await roleManager.RoleExistsAsync(name);
+        if (!roleExists)
+        {
+            return NotFound("Role not found");
         }
 
         var users = await userManager.GetUsersInRoleAsync(name);
-
-        if (!users.Any())
-        {
-            var roleExists = await roleManager.RoleExistsAsync(name);
-            if (!roleExists)
-            {
-                return NotFound(new { message = "Role not found" });
-            }
-        }
 
         return Ok(users.Select(u => u.ToUserResponseDto([name])));
     }
@@ -103,19 +100,19 @@ public class RolesController(
     {
         if (!Guid.TryParse(id, out _))
         {
-            return BadRequest(new { message = "Invalid user ID format" });
+            return BadRequest("Invalid user ID format");
         }
 
         var user = await userManager.FindByIdAsync(id);
 
         if (user == null)
         {
-            return NotFound(new { message = "User not found" });
+            return NotFound("User not found");
         }
 
         if (!ValidRoles.Contains(role))
         {
-            return BadRequest(new { message = $"Invalid role. Valid roles are: {string.Join(", ", ValidRoles)}" });
+            return BadRequest($"Invalid role. Valid roles are: {string.Join(", ", ValidRoles)}");
         }
 
         var result = await userManager.AddToRoleAsync(user, role);
@@ -124,17 +121,17 @@ public class RolesController(
         {
             if (result.Errors.Any(e => e.Code == "DuplicateRoleName" || e.Description.Contains("already")))
             {
-                return Conflict(new { message = $"User is already in role {role}" });
+                return Conflict($"User is already in role {role}");
             }
 
             logger.LogWarning("Failed to add user {UserId} to role {Role}: {Errors}",
                 user.Id, role, string.Join(", ", result.Errors.Select(e => e.Description)));
-            return BadRequest(new { message = "Failed to add user to role" });
+            return BadRequest("Failed to add user to role");
         }
 
         logger.LogInformation("User {UserId} added to role {Role}", user.Id, role);
 
-        return Ok(new { message = $"User added to role {role}" });
+        return Ok($"User added to role {role}");
     }
 
     /// <summary>
@@ -158,19 +155,19 @@ public class RolesController(
     {
         if (!Guid.TryParse(id, out _))
         {
-            return BadRequest(new { message = "Invalid user ID format" });
+            return BadRequest("Invalid user ID format");
         }
 
         var user = await userManager.FindByIdAsync(id);
 
         if (user == null)
         {
-            return NotFound(new { message = "User not found" });
+            return NotFound("User not found");
         }
 
         if (!ValidRoles.Contains(role))
         {
-            return BadRequest(new { message = $"Invalid role. Valid roles are: {string.Join(", ", ValidRoles)}" });
+            return BadRequest($"Invalid role. Valid roles are: {string.Join(", ", ValidRoles)}");
         }
 
         var result = await userManager.RemoveFromRoleAsync(user, role);
@@ -179,16 +176,16 @@ public class RolesController(
         {
             if (result.Errors.Any(e => e.Description.Contains("not") || e.Description.Contains("not found")))
             {
-                return NotFound(new { message = $"User is not in role {role}" });
+                return NotFound($"User is not in role {role}");
             }
 
             logger.LogWarning("Failed to remove user {UserId} from role {Role}: {Errors}",
                 user.Id, role, string.Join(", ", result.Errors.Select(e => e.Description)));
-            return BadRequest(new { message = "Failed to remove user from role" });
+            return BadRequest("Failed to remove user from role");
         }
 
         logger.LogInformation("User {UserId} removed from role {Role}", user.Id, role);
 
-        return Ok(new { message = $"User removed from role {role}" });
+        return Ok($"User removed from role {role}");
     }
 }

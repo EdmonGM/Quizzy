@@ -46,7 +46,7 @@ public class AccountsController(
 
         if (user == null)
         {
-            return NotFound(new { message = "User not found" });
+            return NotFound("User not found");
         }
 
         var roles = await userManager.GetRolesAsync(user);
@@ -72,7 +72,7 @@ public class AccountsController(
 
         if (user == null)
         {
-            return NotFound(new { message = "User not found" });
+            return NotFound("User not found");
         }
 
         var roles = await userManager.GetRolesAsync(user);
@@ -134,7 +134,7 @@ public class AccountsController(
         var currentUser = await userManager.FindByIdAsync(currentUserId!);
         if (currentUser == null)
         {
-            return NotFound(new { message = "User not found" });
+            return NotFound("User not found");
         }
 
         var token = await userManager.GenerateChangeEmailTokenAsync(currentUser, dto.Email);
@@ -142,12 +142,12 @@ public class AccountsController(
 
         if (!result.Succeeded)
         {
-            return BadRequest(new { message = "Email update failed", errors = result.Errors.Select(e => e.Description) });
+            return BadRequest("Email update failed");
         }
 
         logger.LogInformation("User {UserId} email updated to {Email}", currentUser.Id, dto.Email);
 
-        return Ok(new { message = "Email updated successfully" });
+        return Ok("Email updated successfully");
     }
 
     /// <summary>
@@ -169,19 +169,19 @@ public class AccountsController(
         var currentUser = await userManager.FindByIdAsync(currentUserId!);
         if (currentUser == null)
         {
-            return NotFound(new { message = "User not found" });
+            return NotFound("User not found");
         }
 
         var result = await userManager.ChangePasswordAsync(currentUser, dto.CurrentPassword, dto.NewPassword);
 
         if (!result.Succeeded)
         {
-            return BadRequest(new { message = "Password update failed", errors = result.Errors.Select(e => e.Description) });
+            return BadRequest("Password update failed");
         }
 
         logger.LogInformation("User {UserId} password updated successfully", currentUser.Id);
 
-        return Ok(new { message = "Password updated successfully" });
+        return Ok("Password updated successfully");
     }
 
     /// <summary>
@@ -207,15 +207,15 @@ public class AccountsController(
             var error = result.Errors.FirstOrDefault();
             return error?.Code switch
             {
-                "UserNotFound" => NotFound(new { message = error.Description }),
-                "CannotDeleteSystemUser" => BadRequest(new { message = error.Description }),
-                _ => BadRequest(new { message = "Account deletion failed", errors = result.Errors.Select(e => e.Description) })
+                "UserNotFound" => NotFound(error.Description),
+                "CannotDeleteSystemUser" => BadRequest(error.Description),
+                _ => BadRequest("Account deletion failed")
             };
         }
 
         logger.LogInformation("User {UserId} deleted successfully", currentUserId);
 
-        return Ok(new { message = "User deleted successfully" });
+        return Ok("User deleted successfully");
     }
 
     /// <summary>
@@ -236,7 +236,7 @@ public class AccountsController(
 
         if (user == null)
         {
-            return NotFound(new { message = "User not found" });
+            return NotFound("User not found");
         }
 
         var roles = await userManager.GetRolesAsync(user);
