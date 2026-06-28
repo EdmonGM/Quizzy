@@ -168,15 +168,16 @@ public static class QuizAttemptMapper
     public static QuizAttemptsOverviewDto ToQuizAttemptsOverviewDto(
         this List<QuizAttempt> attempts,
         string quizTitle,
-        Guid quizId)
+        Guid quizId,
+        int passingScore)
     {
         var completed = attempts.Where(a => a.Status == QuizAttemptStatus.Completed).ToList();
         var inProgress = attempts.Where(a => a.Status == QuizAttemptStatus.InProgress).ToList();
         var abandoned = attempts.Where(a => a.Status == QuizAttemptStatus.Abandoned).ToList();
 
         var averageScore = completed.Count != 0
-            ? completed.Average(a => a.TotalPossibleScore > 0
-                ? (double)a.Score / a.TotalPossibleScore * 100
+            ? completed.Average(avg => avg.TotalPossibleScore > 0
+                ? (double)avg.Score / avg.TotalPossibleScore * 100
                 : 0)
             : 0;
 
@@ -186,7 +187,7 @@ public static class QuizAttemptMapper
                 var percentage = a.TotalPossibleScore > 0
                     ? (double)a.Score / a.TotalPossibleScore * 100
                     : 0;
-                return percentage >= 70;
+                return percentage >= passingScore;
             }) / completed.Count * 100
             : 0;
 
@@ -213,7 +214,7 @@ public static class QuizAttemptMapper
                 Score = a.Score,
                 TotalPossibleScore = a.TotalPossibleScore,
                 Percentage = Math.Round(percentage, 2),
-                Passed = percentage >= 70,
+                Passed = percentage >= passingScore,
                 StartedAt = a.StartedAt,
                 CompletedAt = a.CompletedAt,
                 TimeSpentSeconds = a.TimeSpentSeconds

@@ -466,7 +466,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         var attempts = await query.ToListAsync();
 
-        return Ok(attempts.ToQuizAttemptsOverviewDto(quiz.Title, quiz.Id));
+        return Ok(attempts.ToQuizAttemptsOverviewDto(quiz.Title, quiz.Id, quiz.PassingScore));
     }
 
     /// <summary>
