@@ -145,13 +145,13 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
         {
             return Unauthorized(UserNotAuthenticatedMessage);
         }
-        
+
         var quiz = await context.Quizzes
             .Where(q => !q.IsDeleted)
             .Include(q => q.Category)
             .Include(q => q.Teacher)
             .Include(q => q.Questions)
-                .ThenInclude(q => q.Choices)
+            .ThenInclude(q => q.Choices)
             .FirstOrDefaultAsync(q => q.Id == id);
 
         if (quiz == null)
@@ -378,4 +378,24 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
 
         return Ok(quiz.ToQuizResponseDto());
     }
+
+    [HttpPost("{id:guid}/validate-access-code")]
+    [Authorize]
+    public async Task<IActionResult> ValidateAccessCode(Guid id, [FromQuery] string accessCode)
+    {
+        var quiz = await context.Quizzes.FirstOrDefaultAsync(q => q.Id == id);
+        if (quiz == null)
+        {
+            return NotFound(QuizNotFoundMessage);
+        }
+        if (string.IsNullOrEmpty(quiz.AccessCode))
+        {
+            return Ok(new {valid = false, message = "Quiz does not have access code"});
+        }
+
+        var valid = quiz.AccessCode == accessCode;
+        
+        return valid ? Ok(new {valid = true}) : Ok(new { valid = false, message = "Invalid access code" });
+    }
+
 }
