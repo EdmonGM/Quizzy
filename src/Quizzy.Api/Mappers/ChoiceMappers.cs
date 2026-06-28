@@ -5,16 +5,30 @@ namespace Quizzy.Api.Mappers;
 
 public static class ChoiceMappers
 {
-    public static ChoiceResponseDto ToChoiceResponseDto(this Choice choice)
+    extension(Choice choice)
     {
-        return new ChoiceResponseDto
+        public ChoiceResponseDto ToChoiceResponseDto()
         {
-            Id =  choice.Id,
-            Content =  choice.Content,
-            IsCorrect = choice.IsCorrect,
-            OrderIndex = choice.OrderIndex,
-        };
+            return new ChoiceResponseDto
+            {
+                Id =  choice.Id,
+                Content =  choice.Content,
+                IsCorrect = choice.IsCorrect,
+                OrderIndex = choice.OrderIndex,
+            };
+        }
+
+        public ChoiceForStudentResponseDto ToChoiceForStudentResponseDto()
+        {
+            return new ChoiceForStudentResponseDto
+            {
+                Id = choice.Id,
+                Content = choice.Content,
+                OrderIndex = choice.OrderIndex,
+            };
+        }
     }
+
     public static Choice ToChoice(this CreateChoiceDto dto, Guid questionId)
     {
         return new Choice

@@ -30,6 +30,11 @@ public class QuizDetailResponseDto : QuizResponseDto
     public List<QuestionResponseDto> Questions { get; set; } = [];
 }
 
+public class QuizDetailForStudentsResponseDto : QuizResponseDto
+{
+    public List<QuestionForStudentResponseDto> Questions { get; set; } = [];
+}
+
 public class CreateQuizDto
 {
     [Required]

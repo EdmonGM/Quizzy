@@ -127,6 +127,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     /// <summary>
     /// Retrieves a quiz by its unique identifier, including all questions and their choices.
     /// </summary>
+    /// <remarks>If the authenticated user is Student, exclude isCorrect from choices response.</remarks>
     /// <param name="id">The GUID of the quiz to retrieve.</param>
     /// <returns>The quiz details if found.</returns>
     /// <response code="200">Returns the requested quiz.</response>
@@ -138,6 +139,13 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetQuizById(Guid id)
     {
+        var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+
+        if (string.IsNullOrEmpty(role))
+        {
+            return Unauthorized(UserNotAuthenticatedMessage);
+        }
+        
         var quiz = await context.Quizzes
             .Where(q => !q.IsDeleted)
             .Include(q => q.Category)
@@ -149,6 +157,11 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
         if (quiz == null)
         {
             return NotFound(QuizNotFoundMessage);
+        }
+
+        if (role == AppRoles.Student)
+        {
+            return Ok(quiz.ToQuizForStudentsResponseDto());
         }
 
         return Ok(quiz.ToQuizDetailedResponseDto());
@@ -320,7 +333,7 @@ public class QuizzesController(ApplicationDbContext context) : ControllerBase
     /// <summary>
     /// Publishes or unpublishes a quiz.
     /// </summary>
-    /// <remarks>This endpoint requires Teacher role. Only the quiz owner can change its publish status.</remarks>
+    /// <remarks>This endpoint requires Teacher role. Only the quiz owner can change its publishing status.</remarks>
     /// <param name="id">The GUID of the quiz to publish or unpublish.</param>
     /// <param name="isPublished">Whether to publish (true) or unpublish (false) the quiz.</param>
     /// <returns>The updated quiz details.</returns>

@@ -2,13 +2,16 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Quizzy.Api.Dtos;
 
-
-public class ChoiceResponseDto
+public class ChoiceForStudentResponseDto
 {
     public Guid Id { get; set; }
     public string Content { get; set; } = string.Empty;
-    public bool IsCorrect { get; set; }
     public int OrderIndex { get; set; }
+}
+
+public class ChoiceResponseDto: ChoiceForStudentResponseDto
+{
+    public bool IsCorrect { get; set; }
 }
 
 public class CreateChoiceDto

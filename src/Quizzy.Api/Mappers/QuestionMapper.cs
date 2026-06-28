@@ -21,6 +21,21 @@ public static class QuestionMapper
                 UpdatedAt = question.UpdatedAt
             };
         }
+        
+        public QuestionForStudentResponseDto ToQuestionForStudentResponseDto()
+        {
+            return new QuestionForStudentResponseDto
+            {
+                Id = question.Id,
+                QuizId = question.QuizId,
+                Content = question.Content,
+                OrderIndex = question.OrderIndex,
+                Points = question.Points,
+                Choices = question.Choices.Select(c => c.ToChoiceForStudentResponseDto()).ToList(),
+                CreatedAt = question.CreatedAt,
+                UpdatedAt = question.UpdatedAt
+            };
+        }
 
         public QuestionSummaryDto ToQuestionSummaryDto()
         {

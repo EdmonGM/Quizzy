@@ -2,16 +2,25 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Quizzy.Api.Dtos;
 
-public class QuestionResponseDto
+public class QuestionDto
 {
     public Guid Id { get; set; }
     public Guid QuizId { get; set; }
     public string Content { get; set; } = string.Empty;
     public int OrderIndex { get; set; }
     public int Points { get; set; }
-    public List<ChoiceResponseDto> Choices { get; set; } = [];
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+}
+
+public class QuestionForStudentResponseDto: QuestionDto
+{
+    public List<ChoiceForStudentResponseDto> Choices { get; set; } = [];
+}
+
+public class QuestionResponseDto: QuestionDto
+{
+    public List<ChoiceResponseDto> Choices { get; set; } = [];
 }
 
 public class QuestionSummaryDto

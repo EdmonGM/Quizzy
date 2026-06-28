@@ -51,6 +51,29 @@ public static class QuizMapper
         };
     }
 
+    public static QuizDetailForStudentsResponseDto ToQuizForStudentsResponseDto(this Quiz quiz)
+    {
+        var questions = quiz.Questions.Select(q => q.ToQuestionForStudentResponseDto()).ToList();
+        return new QuizDetailForStudentsResponseDto
+        {
+            Id = quiz.Id,
+            Title = quiz.Title,
+            Description = quiz.Description,
+            TeacherId = quiz.TeacherId,
+            TeacherName = quiz.Teacher.UserName!,
+            CategoryId = quiz.CategoryId,
+            CategoryName = quiz.Category.Name,
+            TimeLimitMinutes = quiz.TimeLimitMinutes,
+            PassingScore = quiz.PassingScore,
+            MaxAttempts = quiz.MaxAttempts,
+            IsPublished = quiz.IsPublished,
+            AccessCode = quiz.AccessCode,
+            Questions = questions,
+            CreatedAt = quiz.CreatedAt,
+            UpdatedAt = quiz.UpdatedAt,
+        };
+    }
+
     public static Quiz ToQuiz(this CreateQuizDto dto, string teacherId)
     {
         return new Quiz
