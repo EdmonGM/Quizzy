@@ -15,6 +15,11 @@ namespace Quizzy.Api.Controllers;
 [Authorize]
 public class QuizAttemptsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager) : ControllerBase
 {
+    private const string AttemptExpiredMessage = "This attempt has expired and was auto-submitted";
+    private const string AttemptNotInProgressMessage = "Attempt is not in progress";
+    private const string AttemptNotFoundMessage = "Attempt not found";
+    private const string UserNotAuthenticatedMessage = "User not authenticated";
+    
     /// <summary>
     /// Get current user's attempts for a specific quiz (Students)
     /// </summary>
@@ -25,7 +30,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized("User not authenticated");
+            return Unauthorized(UserNotAuthenticatedMessage);
         }
 
         var quiz = await context.Quizzes
@@ -55,7 +60,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized("User not authenticated");
+            return Unauthorized(UserNotAuthenticatedMessage);
         }
 
         var attempt = await context.QuizAttempts
@@ -65,7 +70,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt == null)
         {
-            return NotFound("Attempt not found");
+            return NotFound(AttemptNotFoundMessage);
         }
 
         if (attempt.StudentId != userId)
@@ -73,9 +78,16 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
             return Forbid();
         }
 
+        if (attempt.Status == QuizAttemptStatus.InProgress && attempt.IsExpired())
+        {
+            await ExpireAttemptAsync(attempt);
+        }
+
         if (attempt.Status != QuizAttemptStatus.InProgress)
         {
-            return BadRequest("Attempt is not in progress");
+            return attempt.Status == QuizAttemptStatus.Expired
+                ? Conflict(AttemptExpiredMessage)
+                : BadRequest(AttemptNotInProgressMessage );
         }
 
         var questions = await context.Questions
@@ -90,7 +102,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
         int? timeRemainingSeconds = null;
         if (attempt.Quiz.TimeLimitMinutes > 0)
         {
-            var elapsedSeconds = (int)(DateTime.UtcNow - attempt.StartedAt).TotalSeconds;
+            var elapsedSeconds = attempt.ElapsedSeconds();
             var totalSeconds = attempt.Quiz.TimeLimitMinutes * 60;
             timeRemainingSeconds = Math.Max(0, totalSeconds - elapsedSeconds);
         }
@@ -110,7 +122,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized("User not authenticated");
+            return Unauthorized(UserNotAuthenticatedMessage);
         }
 
         var quiz = await context.Quizzes
@@ -149,7 +161,14 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (existingInProgress != null)
         {
-            return Conflict("You already have an in-progress attempt for this quiz");
+            if (existingInProgress.IsExpired())
+            {
+                await ExpireAttemptAsync(existingInProgress);
+            }
+            else
+            {
+                return Conflict("You already have an in-progress attempt for this quiz");
+            }
         }
 
         var attemptNumber = quiz.QuizAttempts.Count(a => a.StudentId == userId) + 1;
@@ -185,7 +204,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(currentUserId))
         {
-            return Unauthorized("User not authenticated");
+            return Unauthorized(UserNotAuthenticatedMessage);
         }
 
         var attempt = await context.QuizAttempts
@@ -194,22 +213,29 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt == null)
         {
-            return NotFound("Attempt not found");
+            return NotFound(AttemptNotFoundMessage);
         }
 
         if (attempt.StudentId != currentUserId)
         {
             return Forbid();
         }
+        
+        if (attempt.Status == QuizAttemptStatus.InProgress && attempt.IsExpired())
+        {
+            await ExpireAttemptAsync(attempt);
+        }
 
         if (attempt.Status != QuizAttemptStatus.InProgress)
         {
-            return BadRequest("Attempt is not in progress");
+            return attempt.Status == QuizAttemptStatus.Expired
+                ? Conflict(AttemptExpiredMessage)
+                : BadRequest(AttemptNotInProgressMessage);
         }
 
         if (attempt.Quiz.TimeLimitMinutes > 0)
         {
-            var elapsedSeconds = (int)(DateTime.UtcNow - attempt.StartedAt).TotalSeconds;
+            var elapsedSeconds = attempt.ElapsedSeconds();
             var totalSeconds = attempt.Quiz.TimeLimitMinutes * 60;
             if (elapsedSeconds >= totalSeconds)
             {
@@ -287,7 +313,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(currentUserId))
         {
-            return Unauthorized("User not authenticated");
+            return Unauthorized(UserNotAuthenticatedMessage);
         }
 
         var attempt = await context.QuizAttempts
@@ -299,22 +325,29 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt == null)
         {
-            return NotFound("Attempt not found");
+            return NotFound(AttemptNotFoundMessage);
         }
 
         if (attempt.StudentId != currentUserId)
         {
             return Forbid();
         }
+        
+        if (attempt.Status == QuizAttemptStatus.InProgress && attempt.IsExpired())
+        {
+            await ExpireAttemptAsync(attempt);
+        }
 
         if (attempt.Status != QuizAttemptStatus.InProgress)
         {
-            return BadRequest("Attempt is not in progress");
+            return attempt.Status == QuizAttemptStatus.Expired
+                ? Conflict(AttemptExpiredMessage)
+                : BadRequest(AttemptNotInProgressMessage);
         }
 
         if (attempt.Quiz.TimeLimitMinutes > 0)
         {
-            var elapsedSeconds = (int)(DateTime.UtcNow - attempt.StartedAt).TotalSeconds;
+            var elapsedSeconds = attempt.ElapsedSeconds();
             var totalSeconds = attempt.Quiz.TimeLimitMinutes * 60;
             if (elapsedSeconds >= totalSeconds)
             {
@@ -358,7 +391,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized("User not authenticated");
+            return Unauthorized(UserNotAuthenticatedMessage);
         }
 
         var attempt = await context.QuizAttempts
@@ -366,7 +399,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt == null)
         {
-            return NotFound("Attempt not found");
+            return NotFound(AttemptNotFoundMessage);
         }
 
         if (attempt.StudentId != userId)
@@ -376,7 +409,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt.Status != QuizAttemptStatus.InProgress)
         {
-            return BadRequest("Attempt is not in progress");
+            return BadRequest(AttemptNotInProgressMessage);
         }
 
         attempt.Status = QuizAttemptStatus.Abandoned;
@@ -398,7 +431,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized("User not authenticated");
+            return Unauthorized(UserNotAuthenticatedMessage);
         }
 
         var attempt = await context.QuizAttempts
@@ -410,7 +443,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt == null)
         {
-            return NotFound("Attempt not found");
+            return NotFound(AttemptNotFoundMessage);
         }
 
         if (attempt.StudentId != userId)
@@ -438,7 +471,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized("User not authenticated");
+            return Unauthorized(UserNotAuthenticatedMessage);
         }
 
         var quiz = await context.Quizzes
@@ -480,7 +513,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized("User not authenticated");
+            return Unauthorized(UserNotAuthenticatedMessage);
         }
 
         var attempt = await context.QuizAttempts
@@ -493,7 +526,7 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         if (attempt == null)
         {
-            return NotFound("Attempt not found");
+            return NotFound(AttemptNotFoundMessage);
         }
 
         if (attempt.Quiz.TeacherId != userId)
@@ -503,5 +536,16 @@ public class QuizAttemptsController(ApplicationDbContext context, UserManager<Ap
 
         var answers = attempt.StudentAnswers.ToList();
         return Ok(attempt.ToQuizAttemptResultsDto(answers));
+    }
+    
+    private async Task ExpireAttemptAsync(QuizAttempt attempt)
+    {
+        attempt.Status = QuizAttemptStatus.Expired;
+        attempt.CompletedAt = attempt.StartedAt.AddMinutes(attempt.Quiz.TimeLimitMinutes);
+        attempt.TimeSpentSeconds = attempt.Quiz.TimeLimitMinutes * 60;
+        attempt.Score = attempt.StudentAnswers.Where(a => a.IsCorrect).Sum(a => a.Question.Points);
+        attempt.UpdatedAt = DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
     }
 }

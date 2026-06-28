@@ -24,4 +24,21 @@ public static class QuizAttemptStatus
     public const string InProgress = "InProgress";
     public const string Completed = "Completed";
     public const string Abandoned = "Abandoned";
+    public const string Expired = "Expired";
+}
+
+public static class QuizAttemptExtensions
+{
+    extension(QuizAttempt attempt)
+    {
+        public bool IsExpired()
+        {
+            if (attempt.Quiz.TimeLimitMinutes <= 0) return false;
+            var deadline = attempt.StartedAt.AddMinutes(attempt.Quiz.TimeLimitMinutes);
+            return DateTime.UtcNow >= deadline;
+        }
+
+        public int ElapsedSeconds() =>
+            (int)(DateTime.UtcNow - attempt.StartedAt).TotalSeconds;
+    }
 }
